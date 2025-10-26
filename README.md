@@ -42,26 +42,27 @@ The AI Model Catalog CLI evaluates AI/ML models across eight key dimensions to p
 - Git (for repository analysis)
 - Internet connection (for API calls)
 
-### Quick Start
+### Quick Start (Phase 2 / M0)
 
 ```bash
 # 1. Clone the repository
 git clone <repository-url>
 cd CS450_Team_Repo
 
-# 2. Install dependencies
-pip install -e ".[dev]"
+# 2. Copy the environment template and fill in any secrets
+cp .env.example .env         # use `copy` on Windows PowerShell
 
-# 3. Enable pre-commit hooks
-pre-commit install
+# 3. Bootstrap the toolchain (creates .venv, installs deps, runs pytest)
+python scripts/bootstrap_env.py --tests
 
-# 4. Set up environment variables (recommended for full functionality)
-export GITHUB_TOKEN="your_github_token_here"     # For higher rate limits
-export HUGGINGFACE_HUB_TOKEN="hf_your_token"     # For Hugging Face API access
-export PURDUE_GENAI_API_KEY="your_purdue_genai_token"  # For LLM-enhanced analysis
-export LOG_FILE="catalog.log"                    # For logging
-export LOG_LEVEL="1"                             # 0=silent, 1=info, 2=debug
+# 4. Start LocalStack so S3/DynamoDB exist for future milestones
+docker compose -f infrastructure/localstack/docker-compose.yml up -d
+
+# 5. Activate the environment when working
+source .venv/bin/activate    # or `.\\.venv\\Scripts\\activate` on Windows
 ```
+
+See `docs/ENV_SETUP.md` for the detailed onboarding checklist, troubleshooting steps, and the exact artefacts we collect for Delivery 1.
 
 ## LLM-Enhanced Analysis
 

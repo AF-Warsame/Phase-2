@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: localstack/localstack:3.7
+    container_name: model-registry-localstack
+    ports:
+      - "4566:4566"        # Edge port
+      - "4510-4559:4510-4559"
+    environment:
+      - SERVICES=s3,dynamodb,iam,cloudwatch,logs,sts,secretsmanager
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - DEBUG=${LOCALSTACK_DEBUG:-0}
+      - PERSISTENCE=1
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:-}
+    volumes:
+      - ./init:/etc/localstack/init/ready.d
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "bash", "-c", "awslocal s3 ls"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  localstack-data:
