@@ -1,51 +1,61 @@
-import boto3
-import uuid
+# Re-export the comprehensive handlers from src/api
+import sys
 import os
-import json
-import logging
-from datetime import datetime
-from botocore.exceptions import ClientError
 
-# Initialize AWS clients
-s3_client = boto3.client("s3")
-dynamodb_client = boto3.resource("dynamodb")
-table = dynamodb_client.Table(os.getenv("DYNAMODB_TABLE_NAME"))
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../src'))
 
-# Configure structured JSON logging
-logging.basicConfig(format=json.dumps({"timestamp": "%(asctime)s", "message": "%(message)s"}))
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+try:
+    from api.handlers import lambda_handler
+except ImportError:
+    # Fallback to basic implementation if src not available
+    import boto3
+    import uuid
+    import json
+    import logging
+    from datetime import datetime
+    from botocore.exceptions import ClientError
 
-def lambda_handler(event, context):
-    """API Gateway dispatcher for the Lambda function."""
-    try:
-        # Generate a correlation ID for request tracing
-        correlation_id = str(uuid.uuid4())
-        logger.info(f"Handling request with Correlation ID: {correlation_id}")
+    # Initialize AWS clients
+    s3_client = boto3.client("s3")
+    dynamodb_client = boto3.resource("dynamodb")
+    table = dynamodb_client.Table(os.getenv("DYNAMODB_TABLE_NAME"))
 
-        # Dispatch based on HTTP method
-        method = event["httpMethod"]
-        path = event["path"]
+    # Configure structured JSON logging
+    logging.basicConfig(format=json.dumps({"timestamp": "%(asctime)s", "message": "%(message)s"}))
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
-        if path == "/models":
-            if method == "GET":
-                return list_models(correlation_id)
-            elif method == "POST":
-                return upload_model(event, correlation_id)
-            elif method == "DELETE":
-                return delete_model(event, correlation_id)
+    def lambda_handler(event, context):
+        """Basic API Gateway dispatcher for the Lambda function."""
+        try:
+            # Generate a correlation ID for request tracing
+            correlation_id = str(uuid.uuid4())
+            logger.info(f"Handling request with Correlation ID: {correlation_id}")
 
-        elif path == "/health":
-            return health_check()
+            # Dispatch based on HTTP method
+            method = event["httpMethod"]
+            path = event["path"]
 
-        return {"statusCode": 404, "body": json.dumps({"error": "Not Found"})}
+            if path == "/models":
+                if method == "GET":
+                    return list_models(correlation_id)
+                elif method == "POST":
+                    return upload_model(event, correlation_id)
+                elif method == "DELETE":
+                    return delete_model(event, correlation_id)
 
-    except Exception as e:
-        logger.error({"error": str(e)})
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Internal Server Error"})
-        }
+            elif path == "/health":
+                return health_check()
+
+            return {"statusCode": 404, "body": json.dumps({"error": "Not Found"})}
+
+        except Exception as e:
+            logger.error({"error": str(e)})
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"error": "Internal Server Error"})
+            }
 
 
 def upload_model(event, correlation_id):
