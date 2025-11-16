@@ -1,4 +1,10 @@
-from aws_cdk import aws_cloudwatch as cloudwatch, aws_cloudwatch_actions as cw_actions, aws_sns as sns, Stack
+from aws_cdk import (
+    aws_cloudwatch as cloudwatch, 
+    aws_cloudwatch_actions as cw_actions, 
+    aws_sns as sns,
+    aws_sns_subscriptions as subs,
+    Stack
+)
 from constructs import Construct
 
 class ObservabilityStack(Stack):
@@ -25,8 +31,7 @@ class ObservabilityStack(Stack):
 
         # SNS Notification for Errors
         sns_topic = sns.Topic(self, "APIErrorsTopic")
-        sns_topic.add_subscription(sns.Subscription(self, "ErrorAlert", protocol=sns.SubscriptionProtocol.EMAIL,
-                                                     endpoint="your-email@example.com"))
+        sns_topic.add_subscription(subs.EmailSubscription("your-email@example.com"))
 
         # Set error alert
         error_alarm = cloudwatch.Alarm(self, "ErrorAlarm",
