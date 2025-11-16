@@ -1,5 +1,103 @@
 # Model Registry Deployment Guide
 
+## Quick Start (TL;DR)
+
+**For Windows PowerShell users:**
+
+```powershell
+# 1. Navigate to model_reg directory
+cd model_reg
+
+# 2. Set up credentials
+Copy-Item credentials.env.example credentials.env
+notepad credentials.env  # Edit with your AWS credentials
+
+# 3. Install dependencies
+pip install -r infrastructure/requirements.txt
+npm install -g aws-cdk
+
+# 4. Deploy (first time - bootstrap CDK)
+cdk bootstrap aws://YOUR_ACCOUNT_ID/us-east-1
+
+# 5. Deploy the stack
+python infrastructure/deploy.py
+
+# 6. Note the outputs (save these!)
+# Look for: ModelRegistryStack.APIEndpoint, UserPoolId
+
+# 7. Create admin user (replace YOUR_USER_POOL_ID)
+aws cognito-idp admin-create-user `
+  --user-pool-id YOUR_USER_POOL_ID `
+  --username defaultadmin `
+  --temporary-password "CorrectHorseBatteryStaple123!" `
+  --message-action SUPPRESS
+
+aws cognito-idp admin-add-user-to-group `
+  --user-pool-id YOUR_USER_POOL_ID `
+  --username defaultadmin `
+  --group-name Admins
+
+aws cognito-idp admin-set-user-password `
+  --user-pool-id YOUR_USER_POOL_ID `
+  --username defaultadmin `
+  --password "CorrectHorseBatteryStaple123!" `
+  --permanent
+
+# 8. Test (replace YOUR_API_ENDPOINT)
+Invoke-WebRequest -Uri "YOUR_API_ENDPOINT/health"
+```
+
+**For Linux/Mac users:**
+
+```bash
+# 1. Navigate to model_reg directory
+cd model_reg
+
+# 2. Set up credentials
+cp credentials.env.example credentials.env
+nano credentials.env  # Edit with your AWS credentials
+
+# 3. Install dependencies
+pip install -r infrastructure/requirements.txt
+npm install -g aws-cdk
+
+# 4. Deploy (first time - bootstrap CDK)
+cdk bootstrap aws://YOUR_ACCOUNT_ID/us-east-1
+
+# 5. Deploy the stack
+python infrastructure/deploy.py
+
+# 6. Note the outputs (save these!)
+# Look for: ModelRegistryStack.APIEndpoint, UserPoolId
+
+# 7. Create admin user (replace YOUR_USER_POOL_ID)
+USER_POOL_ID="YOUR_USER_POOL_ID"
+
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --temporary-password "CorrectHorseBatteryStaple123!" \
+  --message-action SUPPRESS
+
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --group-name Admins
+
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --password "CorrectHorseBatteryStaple123!" \
+  --permanent
+
+# 8. Test (replace YOUR_API_ENDPOINT)
+curl YOUR_API_ENDPOINT/health
+```
+
+---
+
+## Detailed Instructions
+
 ## Prerequisites
 
 - Python 3.9+
@@ -26,12 +124,16 @@ cdk --version
 
 ### 2. Configure AWS Credentials
 
-Create `model_reg/credentials.env`:
+Create `model_reg/credentials.env` from the template:
 
 ```bash
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=us-east-1
+# Copy the example file
+cp credentials.env.example credentials.env
+
+# Edit credentials.env and fill in your actual AWS credentials
+# AWS_ACCESS_KEY_ID=your_access_key
+# AWS_SECRET_ACCESS_KEY=your_secret_key
+# AWS_REGION=us-east-1
 ```
 
 **Important:** Never commit this file to version control. It's already in `.gitignore`.
@@ -116,48 +218,94 @@ ModelRegistryStack.UserPoolId = us-east-1_abc123
 
 ### 5. Cognito User Pool
 - **Purpose**: Authentication
-- **Default Admin**: `defaultadmin` / `CorrectHorseBatteryStaple123!`
+- **Admin Group**: Created automatically during deployment
 - **Password Policy**: 
   - Min length: 12
   - Requires: lowercase, uppercase, digits, symbols
 
-### 6. CloudWatch
-- **Logs**: Lambda execution logs
-- **Metrics**: API latency, error rate
-- **Alarms**: Error rate threshold
-- **Dashboard**: System health overview
+**Note:** Users must be created after deployment using AWS CLI or Console.
 
 ## Post-Deployment Configuration
 
-### 1. Update Environment Variables
+### 1. Get Deployment Outputs
 
-Create `.env` file in project root:
+After deployment completes, get the API endpoint and other resource IDs:
+
+```bash
+# View all stack outputs
+cdk deploy 2>&1 | grep -A 10 "Outputs:"
+
+# Or query specific outputs
+aws cloudformation describe-stacks \
+  --stack-name ModelRegistryStack \
+  --query 'Stacks[0].Outputs' \
+  --output table
+```
+
+Save these values - you'll need them for testing:
+- **API Endpoint**: The URL for making API requests (e.g., `https://abc123.execute-api.us-east-1.amazonaws.com/prod/`)
+- **User Pool ID**: For creating users (e.g., `us-east-1_abc123`)
+- **S3 Bucket Name**: For direct S3 access if needed
+- **DynamoDB Table Name**: For direct database access if needed
+
+### 2. Create Admin User
+
+Create a default admin user in the Cognito User Pool:
+
+```bash
+# Replace <user-pool-id> with the value from stack outputs
+USER_POOL_ID="<user-pool-id-from-outputs>"
+
+# Create the admin user
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --temporary-password "CorrectHorseBatteryStaple123!" \
+  --user-attributes Name=email,Value=admin@example.com \
+  --message-action SUPPRESS
+
+# Add user to Admins group
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --group-name Admins
+
+# Set permanent password (optional - otherwise user must change on first login)
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --password "CorrectHorseBatteryStaple123!" \
+  --permanent
+
+echo "Admin user 'defaultadmin' created successfully"
+```
+
+### 3. Test Deployment
+
+Test the API endpoint to verify deployment:
+
+```bash
+# Replace <api-endpoint> with the actual endpoint from stack outputs
+API_ENDPOINT="<your-api-endpoint-from-outputs>"
+
+# Health check
+curl $API_ENDPOINT/health
+
+# Expected response:
+# {"status": "healthy", "timestamp": "2024-01-15T10:30:00.000Z"}
+```
+
+If the health check succeeds, your deployment is working correctly!
+
+### 4. Update Environment Variables (Optional)
+
+Create `.env` file in project root for convenience:
 
 ```bash
 MODEL_BUCKET_NAME=<from-cdk-output>
 MODEL_TABLE_NAME=<from-cdk-output>
 API_URL=<from-cdk-output>
 AWS_REGION=us-east-1
-```
-
-### 2. Create Admin User (if needed)
-
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id <user-pool-id> \
-  --username admin \
-  --temporary-password TempPassword123! \
-  --user-attributes Name=email,Value=admin@example.com
-```
-
-### 3. Test Deployment
-
-```bash
-# Health check
-curl https://<api-endpoint>/health
-
-# Expected response:
-# {"status": "healthy", "timestamp": "2024-01-15T10:30:00.000Z"}
 ```
 
 ## Local Development
@@ -307,7 +455,56 @@ aws cloudwatch put-metric-alarm \
 
 ### Common Issues
 
-**1. Deployment Fails**
+**1. credentials.env.example not found (Windows PowerShell)**
+
+If you see this error:
+```
+cp : Cannot find path 'credentials.env.example' because it does not exist.
+```
+
+Solution:
+```powershell
+# Make sure you're in the model_reg directory
+cd model_reg
+
+# For PowerShell, use Copy-Item instead of cp
+Copy-Item credentials.env.example credentials.env
+
+# Or use the built-in alias
+copy credentials.env.example credentials.env
+
+# Then edit the file with your credentials
+notepad credentials.env
+```
+
+**2. AttributeError: 'UserPool' object has no attribute 'add_group'**
+
+This error is now fixed in the latest version. If you still see it:
+```bash
+# Pull latest changes
+git pull origin main
+
+# Or update the stack file manually - the fix removes the invalid add_user() call
+```
+
+**3. Invalid URI: hostname could not be parsed**
+
+This happens when using placeholder values like `<api-endpoint>`. Solution:
+```powershell
+# After deployment completes, look for output like this:
+# ModelRegistryStack.APIEndpoint = https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/
+
+# Store it in a variable (PowerShell)
+$API_ENDPOINT = "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/"
+
+# Test with real endpoint
+Invoke-WebRequest -Uri "$API_ENDPOINT/health"
+
+# Or use curl if available
+curl "$API_ENDPOINT/health"
+```
+
+**4. Deployment Fails - CDK Issues**
 ```bash
 # Check CDK version
 cdk --version
@@ -320,7 +517,7 @@ rm -rf cdk.out/
 cdk synth
 ```
 
-**2. Lambda Timeout**
+**5. Lambda Timeout**
 ```bash
 # Increase timeout in stack
 timeout=Duration.seconds(60)
@@ -329,7 +526,7 @@ timeout=Duration.seconds(60)
 cdk deploy
 ```
 
-**3. Permission Denied**
+**6. Permission Denied**
 ```bash
 # Verify IAM permissions
 aws sts get-caller-identity
@@ -338,13 +535,36 @@ aws sts get-caller-identity
 aws iam get-role --role-name APILambdaExecutionRole
 ```
 
-**4. Package Upload Fails**
+**7. Package Upload Fails**
 ```bash
 # Check S3 bucket permissions
 aws s3api get-bucket-policy --bucket <bucket-name>
 
 # Test S3 upload
 aws s3 cp test.txt s3://<bucket-name>/test.txt
+```
+
+### Windows-Specific Tips
+
+**PowerShell Commands:**
+```powershell
+# Copy file
+Copy-Item credentials.env.example credentials.env
+
+# View file
+Get-Content credentials.env
+
+# Edit file
+notepad credentials.env
+
+# Set environment variable (session only)
+$env:AWS_REGION = "us-east-1"
+
+# Make HTTP request
+Invoke-WebRequest -Uri "https://api-endpoint/health"
+
+# Or install curl for Windows
+winget install curl
 ```
 
 ### Debug Mode
@@ -356,7 +576,7 @@ Enable debug logging:
 logger.setLevel(logging.DEBUG)
 ```
 
-### Support
+### Getting Help
 
 For issues:
 1. Check CloudWatch logs for correlation ID
