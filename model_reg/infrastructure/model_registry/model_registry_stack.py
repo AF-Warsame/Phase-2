@@ -52,14 +52,15 @@ class ModelRegistryStack(Stack):
             )
         )
 
-        # Cognito Default Admin User
-        admin_group = self.user_pool.add_group("DefaultAdminGroup")
-        self.user_pool.add_user(
-            "DefaultAdmin",
-            user_name="defaultadmin",
-            user_group=admin_group,
-            password="CorrectHorseBatteryStaple123!"
+        # Cognito Default Admin Group
+        admin_group = self.user_pool.add_group(
+            "DefaultAdminGroup",
+            group_name="Admins"
         )
+        
+        # Note: Creating users via CDK is not recommended for production
+        # Users should be created via AWS Console, AWS CLI, or at runtime
+        # The deployment guide will provide instructions for creating the default admin user
 
         # Lambda Function for the API Handlers
         api_lambda_role = iam.Role(

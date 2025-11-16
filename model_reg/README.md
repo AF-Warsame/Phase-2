@@ -113,12 +113,16 @@ npm install -g aws-cdk
 
 ### 3. Configure AWS
 
-Create `credentials.env`:
+Create `credentials.env` from the template:
 
 ```bash
-AWS_ACCESS_KEY_ID=your_key
-AWS_SECRET_ACCESS_KEY=your_secret
-AWS_REGION=us-east-1
+# Copy the template
+cp credentials.env.example credentials.env
+
+# Edit the file and add your AWS credentials
+# AWS_ACCESS_KEY_ID=your_key
+# AWS_SECRET_ACCESS_KEY=your_secret
+# AWS_REGION=us-east-1
 ```
 
 ### 4. Deploy
@@ -130,15 +134,45 @@ cdk bootstrap
 # Deploy infrastructure
 python infrastructure/deploy.py
 
-# Or manually
+# Or manually with CDK
 cdk deploy
 ```
 
-### 5. Test
+The deployment will output important values including your API endpoint URL.
+
+### 5. Create Admin User
+
+After deployment, create the default admin user:
 
 ```bash
-# Get API endpoint from deployment output
-API_URL=<your-api-endpoint>
+# Get User Pool ID from deployment outputs
+USER_POOL_ID="<from-deployment-output>"
+
+# Create admin user
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --temporary-password "CorrectHorseBatteryStaple123!" \
+  --message-action SUPPRESS
+
+# Add to admin group and set permanent password
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --group-name Admins
+
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --password "CorrectHorseBatteryStaple123!" \
+  --permanent
+```
+
+### 6. Test
+
+```bash
+# Get API endpoint from deployment output (shown after cdk deploy completes)
+API_URL="<your-api-endpoint-from-output>"
 
 # Health check
 curl $API_URL/health
@@ -297,7 +331,9 @@ aws logs filter-pattern "correlation_id: abc123"
 
 - AWS Cognito User Pool
 - JWT token-based authentication
-- Default admin: `defaultadmin` / `CorrectHorseBatteryStaple123!`
+- Admin user must be created after deployment (see Quick Start section)
+- Default admin username: `defaultadmin`
+- Default admin password: `CorrectHorseBatteryStaple123!`
 
 ### Authorization
 

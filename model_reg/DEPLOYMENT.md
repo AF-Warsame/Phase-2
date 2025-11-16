@@ -26,12 +26,16 @@ cdk --version
 
 ### 2. Configure AWS Credentials
 
-Create `model_reg/credentials.env`:
+Create `model_reg/credentials.env` from the template:
 
 ```bash
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=us-east-1
+# Copy the example file
+cp credentials.env.example credentials.env
+
+# Edit credentials.env and fill in your actual AWS credentials
+# AWS_ACCESS_KEY_ID=your_access_key
+# AWS_SECRET_ACCESS_KEY=your_secret_key
+# AWS_REGION=us-east-1
 ```
 
 **Important:** Never commit this file to version control. It's already in `.gitignore`.
@@ -116,48 +120,94 @@ ModelRegistryStack.UserPoolId = us-east-1_abc123
 
 ### 5. Cognito User Pool
 - **Purpose**: Authentication
-- **Default Admin**: `defaultadmin` / `CorrectHorseBatteryStaple123!`
+- **Admin Group**: Created automatically during deployment
 - **Password Policy**: 
   - Min length: 12
   - Requires: lowercase, uppercase, digits, symbols
 
-### 6. CloudWatch
-- **Logs**: Lambda execution logs
-- **Metrics**: API latency, error rate
-- **Alarms**: Error rate threshold
-- **Dashboard**: System health overview
+**Note:** Users must be created after deployment using AWS CLI or Console.
 
 ## Post-Deployment Configuration
 
-### 1. Update Environment Variables
+### 1. Get Deployment Outputs
 
-Create `.env` file in project root:
+After deployment completes, get the API endpoint and other resource IDs:
+
+```bash
+# View all stack outputs
+cdk deploy 2>&1 | grep -A 10 "Outputs:"
+
+# Or query specific outputs
+aws cloudformation describe-stacks \
+  --stack-name ModelRegistryStack \
+  --query 'Stacks[0].Outputs' \
+  --output table
+```
+
+Save these values - you'll need them for testing:
+- **API Endpoint**: The URL for making API requests (e.g., `https://abc123.execute-api.us-east-1.amazonaws.com/prod/`)
+- **User Pool ID**: For creating users (e.g., `us-east-1_abc123`)
+- **S3 Bucket Name**: For direct S3 access if needed
+- **DynamoDB Table Name**: For direct database access if needed
+
+### 2. Create Admin User
+
+Create a default admin user in the Cognito User Pool:
+
+```bash
+# Replace <user-pool-id> with the value from stack outputs
+USER_POOL_ID="<user-pool-id-from-outputs>"
+
+# Create the admin user
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --temporary-password "CorrectHorseBatteryStaple123!" \
+  --user-attributes Name=email,Value=admin@example.com \
+  --message-action SUPPRESS
+
+# Add user to Admins group
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --group-name Admins
+
+# Set permanent password (optional - otherwise user must change on first login)
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username defaultadmin \
+  --password "CorrectHorseBatteryStaple123!" \
+  --permanent
+
+echo "Admin user 'defaultadmin' created successfully"
+```
+
+### 3. Test Deployment
+
+Test the API endpoint to verify deployment:
+
+```bash
+# Replace <api-endpoint> with the actual endpoint from stack outputs
+API_ENDPOINT="<your-api-endpoint-from-outputs>"
+
+# Health check
+curl $API_ENDPOINT/health
+
+# Expected response:
+# {"status": "healthy", "timestamp": "2024-01-15T10:30:00.000Z"}
+```
+
+If the health check succeeds, your deployment is working correctly!
+
+### 4. Update Environment Variables (Optional)
+
+Create `.env` file in project root for convenience:
 
 ```bash
 MODEL_BUCKET_NAME=<from-cdk-output>
 MODEL_TABLE_NAME=<from-cdk-output>
 API_URL=<from-cdk-output>
 AWS_REGION=us-east-1
-```
-
-### 2. Create Admin User (if needed)
-
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id <user-pool-id> \
-  --username admin \
-  --temporary-password TempPassword123! \
-  --user-attributes Name=email,Value=admin@example.com
-```
-
-### 3. Test Deployment
-
-```bash
-# Health check
-curl https://<api-endpoint>/health
-
-# Expected response:
-# {"status": "healthy", "timestamp": "2024-01-15T10:30:00.000Z"}
 ```
 
 ## Local Development
