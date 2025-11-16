@@ -1,0 +1,196 @@
+PROJECT_TITLE: A Trustworthy Model Registry
+COURSE: ECE 30861/46100 – Software Engineering
+PHASE: Project 2
+TEAM: Abdullahi Warsame, Oluwatomi Oladunni, Loic Rulinda Shema, Oluwarotimi Quadri
+DATE: 2025-10-19
+
+1. PROJECT_OVERVIEW
+    1.1 Objective
+        The goal of this project is to design and implement a trustworthy machine learning model registry for ACME Corporation. 
+        The registry will extend Beta Software Solutions’ Phase 1 implementation and introduce additional reliability, scalability, and security features. 
+        It must support CRUD operations, model ingestion, model rating, lineage tracking, and enumerations while maintaining trustworthiness and reproducibility.
+    1.2 Constraints
+        The system must be built using AWS free-tier components and comply with Sarah’s baseline and extended requirements. 
+        It must support CI/CD, observability, and automated testing. 
+        All deliverables must remain within the 90-hour-per-person budget. 
+        The team will use another team’s Phase 1 implementation and cannot copy its own codebase.
+    1.3 Deliverables
+        Delivery 1: Functional CI/CD, baseline CRUD, Ingest, and Enumerate features.
+        Delivery 2: Extended features, full testing, observability, and final documentation.
+        Postmortem: Analysis of deviations, outcomes, and lessons learned.
+
+2. TOOL_SELECTION_AND_JUSTIFICATION
+    2.1 Compute and Hosting
+        EC2 for persistent API hosting. Lambda for lightweight background jobs. Both within AWS free tier.
+    2.2 Storage
+        S3 used for model package and artifact storage due to durability, scalability, and SDK integration.
+    2.3 Metadata Store
+        DynamoDB for fully serverless, auto-scaling metadata management with zero admin overhead.
+    2.4 Logging
+        CloudWatch for integrated logging, metrics, and alarms. Connects with SNS for alerts.
+    2.5 LLM Integration
+        Minimal use of SageMaker endpoint for compliance with the “use LLM” requirement under free-tier constraints.
+    2.6 CI/CD Pipeline
+        GitHub Actions with OIDC authentication to AWS. Handles automated lint, type checks, unit tests, integration tests, and deployments.
+    2.7 Version Control
+        GitHub used for version management, collaboration, Dependabot, and CoPilot Auto-Review.
+    2.8 Secrets and Credentials
+        AWS Secrets Manager for secure handling of credentials and API keys.
+    2.9 Budget Control
+        CloudWatch Billing Alarm set to alert team when approaching free-tier or budget thresholds.
+
+3. TEAM_CONTRACT
+    3.1 Responsibilities
+        Each team member owns assigned deliverables, submits tested and documented code, and maintains review compliance.
+    3.2 Pull Request Policy
+        Every PR requires one reviewer and successful CI checks before merge.
+    3.3 Code Quality
+        Enforce consistent linting, typing, and formatting standards.
+    3.4 Communication
+        Weekly updates in team chat. Escalate any blocker persisting over 24 hours.
+    3.5 Improvements from Phase 1
+        Stronger enforcement of TDD and earlier CI gating.
+
+4. MEETING_PLAN
+    4.1 Weekly Sprint Planning
+        Tuesdays 10:30–11:00 AM.
+    4.2 Mid-week Sync
+        Fridays 4:00–4:30 PM.
+    4.3 Ad-hoc Design Meetings
+        Scheduled by calendar invites as needed.
+    4.4 Meeting Protocol
+        Each member presents weekly accomplishments and next week’s goals.
+    4.5 Adjustments from Phase 1
+        Progress metrics will be tracked based on completed tasks.
+
+5. REQUIREMENTS
+    5.1 Baseline Functional Requirements
+        5.1.1 CRUD Operations
+            Authenticated API with default admin user.
+            Upload, update, delete, and download model packages (ZIPs and parts).
+        5.1.2 Model Rating
+            Return Part-1 score plus Reproducibility, Reviewedness, and Treescore metrics.
+        5.1.3 Ingest Functionality
+            Import HuggingFace models with minimum quality ≥ 0.5 on all non-latency metrics.
+        5.1.4 Enumeration and Search
+            List registry contents with pagination and regex search. Support version queries with exact, bounded, ~, and ^ symbols.
+        5.1.5 Lineage Graph
+            Derived from config.json metadata.
+        5.1.6 Size Cost
+            Endpoint reports model download size.
+        5.1.7 License Compatibility
+            Verify GitHub repository license compatibility with model license.
+        5.1.8 Reset
+            Reset endpoint restores registry to empty default state.
+    5.2 Interface Requirements
+        REST API compliant with OpenAPI schema and a browser-accessible web UI.
+    5.3 Non-Functional Requirements
+        Single GitHub repository, automated unit + integration + e2e tests achieving ≥60% line coverage minimum.
+        GitHub Project Board for milestone tracking and reporting.
+        LLM incorporation described in project plan.
+        No code copy-paste from open-source; use APIs only.
+    5.4 Security Requirements
+        Design must mitigate OWASP Top 10 vulnerabilities and follow STRIDE analysis.
+        Secure authentication, token management, and input handling.
+    5.5 Extended Requirement: High-Assurance Track
+        Demonstrate ≥90% coverage for components, ≥95% for full suite.
+        Hermetic testing and robust failure handling.
+        Disaster recovery from S3/DynamoDB outages.
+        Support atomic multi-package transactions.
+    5.6 AWS Deployment Requirements
+        Must use at least two AWS components and expose a uniform API.
+        Implement observability through CloudWatch metrics and a /health endpoint.
+    5.7 CI/CD Requirements
+        GitHub Actions must automatically test all PRs and deploy to staging upon merge.
+    5.8 Accessibility Requirements
+        Frontend UI compliant with WCAG 2.1 Level AA standards (ADA compliant).
+    5.9 Performance and Monitoring
+        CloudWatch dashboards for latency (P50, P95, P99), error rates, queue backlog, and costs.
+
+6. STARTING_PROJECT_ANALYSIS
+    6.1 Inherited Codebase
+        The project is based on a trustworthy Phase 1 implementation evaluated by discussion with original authors and review of code and documentation.
+    6.2 Findings
+        No blockers identified. Existing code satisfies baseline autograder expectations.
+    6.3 Decision
+        Team will build upon existing repository instead of restarting from scratch.
+    6.4 Impact on Timeline
+        Proceeding as planned without delay.
+
+7. PRELIMINARY_DESIGN
+    7.1 Architecture Overview
+        Modular microservice architecture hosted on AWS using EC2, Lambda, S3, and DynamoDB.
+        REST API Gateway routes to Lambda and EC2 backend functions.
+        Frontend hosted via S3 static site.
+    7.2 AWS Components
+        EC2 for API service.
+        S3 for object storage.
+        DynamoDB for metadata.
+        CloudWatch for metrics.
+        Secrets Manager for credentials.
+        SNS for alerts.
+    7.3 Diagram Description
+        Flow: Client → API Gateway → Auth Lambda → EC2 registry API → DynamoDB/S3 → CloudWatch logging.
+    7.4 Refinements
+        Improved CI gating and earlier integration based on Design HW feedback.
+
+8. VALIDATION_PLAN
+    8.1 Testing Framework
+        Pytest for unit and integration tests.
+        Playwright for frontend E2E testing.
+        Dependabot for dependency scanning.
+    8.2 Coverage Targets
+        Delivery 1: 60% coverage.
+        Final: 95% full coverage.
+    8.3 Test Environments
+        LocalStack simulates S3 and DynamoDB in CI pipeline.
+    8.4 Logging and Debugging
+        Structured JSON logs with correlation IDs per request.
+    8.5 Observability Integration
+        /health endpoint exposes uptime, latency, and error statistics.
+        CloudWatch dashboards display performance and alert metrics.
+    8.6 CI/CD Integration
+        GitHub Actions automatically runs tests and deploys upon passing PRs.
+        Autograder interacts via staging load balancer URL.
+    8.7 Alerts
+        Budget and error-rate thresholds trigger SNS notifications.
+
+9. MILESTONES_AND_TIMELINE
+    ~~M0 Onboard and Environment Setup, Week 7, all members, 32 hours.~~
+    M1 Authentication and IAM, Week 7–8, Abdullahi and Oluwatomi, 64 hours.
+    M2 CRUD API and S3 Integration, Week 8–9, Loic and Oluwarotimi, 80 hours.
+    M3 Rating Pipeline Core, Week 9–10, Abdullahi and Loic, 80 hours.
+    M4 Reproducibility and Treescore Metrics, Week 10–11, Oluwatomi and Abdullahi, 96 hours.
+    M5 HuggingFace Ingest, Week 11, Loic and Oluwarotimi, 48 hours.
+    M6 Enumerate and Version Parsing, Week 11–12, Oluwarotimi and Abdullahi, 64 hours.
+    M7 Security Features and Audit Logs, Week 12–13, Oluwatomi and Loic, 96 hours.
+    M8 CI/CD Finalization and Deployment, Week 13, all members, 40 hours.
+    M9 Frontend and ADA Compliance, Week 13–14, Loic and Abdullahi, 64 hours.
+    M10 Delivery and Demo, Week 14, all members, 32 hours.
+    M11 Buffer and Postmortem, Week 15–16, all members, 40 hours.
+    Slack of two weeks reserved for overruns in M4, M7, and postmortem.
+
+10. LESSONS_LEARNED_FROM_PHASE_1
+    10.1 Problems
+        Over-ambitious scope, incomplete tests, late integration, and single-owner bottlenecks.
+    10.2 Mitigations
+        Baseline-first scope control.
+        Test-driven development on critical paths.
+        Dual ownership per key component.
+        CI gating with mandatory lint, mypy, pytest, and reviews.
+
+11. SPEC_REFERENCE_SUMMARY
+    11.1 Required Components
+        Must use multiple AWS free-tier services including EC2, Lambda, S3, DynamoDB, CloudWatch, Secrets Manager, and SageMaker.
+    11.2 Required Tracks
+        Baseline plus one Extended Track (High-Assurance selected).
+    11.3 Required CI/CD
+        GitHub Actions with test-on-PR and deploy-on-merge.
+    11.4 Required Observability
+        /health endpoint plus CloudWatch dashboards.
+    11.5 Required Accessibility
+        WCAG 2.1 AA compliance.
+    11.6 Required Testing
+        90–95% coverage, hermetic tests, security fuzzing, dependency scanning.
+    11.7 Required Deliverables
+        Project Plan, Milestones, Delivery 1 Demo, Delivery 2 Final System, and Postmortem.

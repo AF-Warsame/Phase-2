@@ -1,0 +1,8 @@
+[FORMAT]
+max-line-length=100
+
+[MASTER]
+ignore=venv,.venv
+
+[MESSAGES CONTROL]
+disable=missing-module-docstring,missing-function-docstring,missing-class-docstring,too-few-public-methods,unnecessary-pass,consider-using-dict-items
