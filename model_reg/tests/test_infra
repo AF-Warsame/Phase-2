@@ -1,0 +1,36 @@
+# tests/test_infrastructure.py
+import boto3
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+def test_aws_services():
+    """Test access to created AWS services"""
+    session = boto3.Session(
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.getenv('AWS_REGION')
+    )
+
+    # Test S3
+    s3 = session.client('s3')
+    bucket_name = os.getenv('MODEL_BUCKET_NAME')
+    try:
+        s3.head_bucket(Bucket=bucket_name)
+        print(f"S3 bucket '{bucket_name}' accessible")
+    except Exception as e:
+        print(f"S3 Error: {str(e)}")
+
+    # Test DynamoDB
+    dynamodb = session.resource('dynamodb')
+    table_name = os.getenv('MODEL_TABLE_NAME')
+    try:
+        table = dynamodb.Table(table_name)
+        table.scan(Limit=1)
+        print(f"DynamoDB table '{table_name}' accessible")
+    except Exception as e:
+        print(f"DynamoDB Error: {str(e)}")
+
+if __name__ == "__main__":
+    test_aws_services()

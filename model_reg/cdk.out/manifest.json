@@ -1,0 +1,179 @@
+{
+  "version": "34.0.0",
+  "artifacts": {
+    "ModelRegistryDev.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "ModelRegistryDev.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "ModelRegistryDev": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "ModelRegistryDev.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/86ebc1cdc69ed43a2530cc220c31a0bad80b4a25cdcae068bd4e69ca0f5f4aa7.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "ModelRegistryDev.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "ModelRegistryDev.assets"
+      ],
+      "metadata": {
+        "/ModelRegistryDev/ModelStorage/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelStorageE02DBB5B"
+          }
+        ],
+        "/ModelRegistryDev/ModelMetadata/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelMetadata421E68BF"
+          }
+        ],
+        "/ModelRegistryDev/DemoLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DemoLambdaServiceRole2E20B509"
+          }
+        ],
+        "/ModelRegistryDev/DemoLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DemoLambda269372AF"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApi0A50A2C5"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApiCloudWatchRole61C6CE00"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApiAccountE046094D"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApiDeployment63F3F27600dc0ef99d22522e2e12834fd1e0e5b4"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApiDeploymentStageprod0EC8624A"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApiEndpointD9AA8738"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Default/models/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApimodels8A5A0670"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Default/models/GET/ApiPermission.ModelRegistryDevModelRegistryApi01AAED01.GET..models": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApimodelsGETApiPermissionModelRegistryDevModelRegistryApi01AAED01GETmodels6B826636"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Default/models/GET/ApiPermission.Test.ModelRegistryDevModelRegistryApi01AAED01.GET..models": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApimodelsGETApiPermissionTestModelRegistryDevModelRegistryApi01AAED01GETmodels847AD08F"
+          }
+        ],
+        "/ModelRegistryDev/ModelRegistryApi/Default/models/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ModelRegistryApimodelsGET49429682"
+          }
+        ],
+        "/ModelRegistryDev/BucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BucketName"
+          }
+        ],
+        "/ModelRegistryDev/TableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TableName"
+          }
+        ],
+        "/ModelRegistryDev/ApiUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiUrl"
+          }
+        ],
+        "/ModelRegistryDev/DemoEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DemoEndpoint"
+          }
+        ],
+        "/ModelRegistryDev/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/ModelRegistryDev/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/ModelRegistryDev/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/ModelRegistryDev/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "ModelRegistryDev"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}
