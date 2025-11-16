@@ -86,11 +86,23 @@ model_reg/
 │   │   └── test_package_model.py
 │   └── integration/          # Integration tests
 ├── API_DOCUMENTATION.md      # API reference
-├── DEPLOYMENT.md             # Deployment guide
+├── DEPLOYMENT.md             # Detailed deployment guide
+├── GETTING_STARTED.md        # Quick start guide (START HERE!)
 └── README.md                 # This file
 ```
 
 ## Quick Start
+
+**New to this project? Start here:** 👉 [GETTING_STARTED.md](./GETTING_STARTED.md)
+
+The Getting Started guide provides step-by-step instructions for deploying the Model Registry to AWS, including:
+- Prerequisites checklist
+- Detailed deployment steps for Windows and Linux/Mac
+- How to create the admin user
+- How to test your deployment
+- Common troubleshooting tips
+
+### Deployment Overview
 
 ### 1. Prerequisites
 
