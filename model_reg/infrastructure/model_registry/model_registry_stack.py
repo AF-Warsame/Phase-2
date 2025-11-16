@@ -82,7 +82,7 @@ class ModelRegistryStack(Stack):
             self, "APILambda",
             runtime=lambda_.Runtime.PYTHON_3_9,
             handler="app.lambda_handler",
-            code=lambda_.Code.from_asset("src/api"),
+            code=lambda_.Code.from_asset("infrastructure"),
             environment={
                 "S3_BUCKET_NAME": self.s3_bucket.bucket_name,
                 "DYNAMODB_TABLE_NAME": self.dynamodb_table.table_name,
@@ -92,23 +92,14 @@ class ModelRegistryStack(Stack):
             role=api_lambda_role
         )
 
-        # API Gateway Integration
+        # API Gateway Integration - Use proxy integration for simplicity
         api_gateway = apigw.LambdaRestApi(
             self, "APIGateway",
             rest_api_name="Model Registry API",
-            description="API for uploading, downloading, updating and deleting models.",
+            description="API for managing AI/ML model packages with rating and discovery.",
             handler=self.api_lambda,
-            proxy=False
+            proxy=True  # Use proxy integration for all paths
         )
-
-        # /models resource and methods
-        models_resource = api_gateway.root.add_resource("models")
-        models_resource.add_method("GET")   # List models (pagination and search)
-        models_resource.add_method("POST")  # Upload model
-        models_resource.add_method("DELETE")  # Delete model entry
-
-        # /health resource
-        api_gateway.root.add_resource("health").add_method("GET")
 
         # CloudWatch Alarm for Error Rate
         error_alarm = apigw.Stage(

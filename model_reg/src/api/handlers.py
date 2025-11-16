@@ -5,17 +5,40 @@ import uuid
 import base64
 from datetime import datetime
 from typing import Dict, Any
+import os
+import sys
 
-from ..services import PackageService, RatingService
-from ..models import PackageMetadata
+# Handle imports for both Lambda and testing environments
+try:
+    from ..services import PackageService, RatingService
+    from ..models import PackageMetadata
+except ImportError:
+    # Fallback for direct execution or testing
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from services import PackageService, RatingService
+    from models import PackageMetadata
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Initialize services
-package_service = PackageService()
-rating_service = RatingService()
+# Initialize services - lazy initialization to avoid AWS connection in testing
+package_service = None
+rating_service = None
+
+def _get_package_service():
+    """Lazy initialization of package service"""
+    global package_service
+    if package_service is None:
+        package_service = PackageService()
+    return package_service
+
+def _get_rating_service():
+    """Lazy initialization of rating service"""
+    global rating_service
+    if rating_service is None:
+        rating_service = RatingService()
+    return rating_service
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -107,7 +130,7 @@ def handle_upload_package(event: Dict, correlation_id: str) -> Dict:
         
         # Calculate ratings if URL provided
         if metadata.repository_url or metadata.huggingface_url:
-            scores = rating_service.calculate_rating(
+            scores = _get_rating_service().calculate_rating(
                 repository_url=metadata.repository_url,
                 huggingface_url=metadata.huggingface_url
             )
@@ -117,7 +140,7 @@ def handle_upload_package(event: Dict, correlation_id: str) -> Dict:
             metadata.tree_score = scores.get("tree_score")
         
         # Create package
-        package = package_service.create_package(metadata, zip_data)
+        package = _get_package_service().create_package(metadata, zip_data)
         
         logger.info(f"Package created - CorrelationID: {correlation_id} - ID: {package.package_id}")
         
@@ -135,13 +158,13 @@ def handle_upload_package(event: Dict, correlation_id: str) -> Dict:
 def handle_get_package(package_id: str, correlation_id: str) -> Dict:
     """Handle GET /packages/{id} - Get package details and download link"""
     try:
-        package = package_service.get_package(package_id)
+        package = _get_package_service().get_package(package_id)
         
         if not package:
             return error_response(404, "Package not found", correlation_id)
         
         # Get download data
-        package_data = package_service.get_package_data(package_id)
+        package_data = _get_package_service().get_package_data(package_id)
         
         response = package.to_dict()
         if package_data:
@@ -160,7 +183,7 @@ def handle_update_package(package_id: str, event: Dict, correlation_id: str) -> 
     try:
         body = json.loads(event.get("body", "{}"))
         
-        package = package_service.update_package_metadata(package_id, body)
+        package = _get_package_service().update_package_metadata(package_id, body)
         
         if not package:
             return error_response(404, "Package not found", correlation_id)
@@ -180,7 +203,7 @@ def handle_update_package(package_id: str, event: Dict, correlation_id: str) -> 
 def handle_delete_package(package_id: str, correlation_id: str) -> Dict:
     """Handle DELETE /packages/{id} - Delete package"""
     try:
-        success = package_service.delete_package(package_id)
+        success = _get_package_service().delete_package(package_id)
         
         if not success:
             return error_response(404, "Package not found", correlation_id)
@@ -204,7 +227,7 @@ def handle_list_packages(event: Dict, correlation_id: str) -> Dict:
         limit = int(params.get("limit", "100"))
         last_key = params.get("next_key")
         
-        result = package_service.list_packages(
+        result = _get_package_service().list_packages(
             name_regex=name_regex,
             version_query=version_query,
             limit=limit,
@@ -227,7 +250,7 @@ def handle_search_packages(event: Dict, correlation_id: str) -> Dict:
         if not search_text:
             return error_response(400, "Missing search query 'q'", correlation_id)
         
-        packages = package_service.search_packages(search_text)
+        packages = _get_package_service().search_packages(search_text)
         
         return success_response({
             "packages": [p.to_dict() for p in packages],
@@ -249,10 +272,10 @@ def handle_ingest_from_huggingface(event: Dict, correlation_id: str) -> Dict:
             return error_response(400, "Missing huggingface_url", correlation_id)
         
         # Calculate rating
-        scores = rating_service.calculate_rating(huggingface_url=hf_url)
+        scores = _get_rating_service().calculate_rating(huggingface_url=hf_url)
         
         # Check quality threshold
-        if not rating_service.meets_quality_threshold(scores, threshold=0.5):
+        if not _get_rating_service().meets_quality_threshold(scores, threshold=0.5):
             return error_response(400, 
                 f"Package does not meet quality threshold. Rating: {scores.get('rating_score', 0.0)}", 
                 correlation_id)
@@ -280,7 +303,7 @@ def handle_ingest_from_huggingface(event: Dict, correlation_id: str) -> Dict:
         with zipfile.ZipFile(zip_buffer, 'w') as zf:
             zf.writestr('README.md', f'# {model_name}\n\nIngested from {hf_url}')
         
-        package = package_service.create_package(metadata, zip_buffer.getvalue())
+        package = _get_package_service().create_package(metadata, zip_buffer.getvalue())
         
         logger.info(f"Package ingested - CorrelationID: {correlation_id} - HF: {hf_url}")
         
@@ -299,7 +322,7 @@ def handle_ingest_from_huggingface(event: Dict, correlation_id: str) -> Dict:
 def handle_get_total_size(correlation_id: str) -> Dict:
     """Handle GET /size - Get total size of all packages"""
     try:
-        total_bytes = package_service.get_total_size()
+        total_bytes = _get_package_service().get_total_size()
         
         return success_response({
             "total_size_bytes": total_bytes,
@@ -340,7 +363,7 @@ def handle_license_check(event: Dict, correlation_id: str) -> Dict:
 def handle_reset(correlation_id: str) -> Dict:
     """Handle POST /reset - Reset registry to empty state"""
     try:
-        success = package_service.reset_registry()
+        success = _get_package_service().reset_registry()
         
         if success:
             logger.info(f"Registry reset - CorrelationID: {correlation_id}")

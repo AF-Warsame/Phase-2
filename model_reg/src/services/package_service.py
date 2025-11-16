@@ -1,5 +1,6 @@
 # src/services/package_service.py
 import os
+import sys
 import uuid
 import zipfile
 import base64
@@ -8,7 +9,11 @@ from typing import List, Optional, Dict
 import boto3
 from botocore.exceptions import ClientError
 
-from ..models import Package, PackageMetadata, PackageVersion
+try:
+    from ..models import Package, PackageMetadata, PackageVersion
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from models import Package, PackageMetadata, PackageVersion
 
 class PackageService:
     """Service for managing packages in S3 and DynamoDB"""
