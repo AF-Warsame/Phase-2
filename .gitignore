@@ -86,3 +86,4 @@ pytest_output.log
 # Temporary files
 *.tmp
 *.temp
+cloned_models/
