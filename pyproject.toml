@@ -17,6 +17,9 @@ dev = [
   "pytest-cov>=5.0",
   "coverage>=7.0",
   "pylint>=3.2",
+  "black>=24.0",
+  "isort>=5.13",
+  "mypy>=1.10",
   "pre-commit>=3.7",
 ]
 

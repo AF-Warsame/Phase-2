@@ -5,14 +5,15 @@ repos:
     name: black
     entry: black
     language: system
-    files: \.py$
+    files: ^(src|tests)/.*\.py$
   - id: pylint
     name: pylint
     entry: pylint
     language: system
-    files: \.py$
+    files: ^(src|tests)/.*\.py$
   - id: pytest
     name: pytest
     entry: pytest
     language: system
     pass_filenames: false
+    files: ^(src|tests)/

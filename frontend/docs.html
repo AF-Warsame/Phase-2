@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model Registry Docs</title>
+  <style>
+    body { font-family: "Inter", system-ui, -apple-system, sans-serif; background: #0f172a; color: #e5e7eb; margin: 0; padding: 24px; line-height: 1.6; }
+    a { color: #22d3ee; }
+    h1, h2, h3 { margin-top: 24px; }
+    code { background: #111827; padding: 2px 6px; border-radius: 6px; }
+    pre { background: #111827; padding: 12px; border-radius: 10px; overflow-x: auto; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Model Registry Client – Usage</h1>
+  <p><a href="index.html">Back to App</a></p>
+
+  <div class="card">
+    <h2>Quick Start</h2>
+    <ol>
+      <li>API Base URL: <code>https://7c1jore560.execute-api.us-east-1.amazonaws.com/prod</code></li>
+      <li>Authenticate: click <strong>PUT /authenticate</strong> (default user/password are filled). Copy the returned bearer token.</li>
+      <li>Paste the token into “Bearer Token (X-Authorization)”.</li>
+      <li>Create an artifact: choose type <code>model</code>, set Source URL (e.g., <code>https://huggingface.co/google-bert/bert-base-uncased</code>), click <strong>POST /artifact/{type}</strong>.</li>
+      <li>Use the returned <code>id</code> with GET, DELETE, /rate, /lineage, /license-check, /cost.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Endpoints Mapped</h2>
+    <ul>
+      <li>Health: <code>GET /health</code>, <code>GET /health/components</code></li>
+      <li>Auth: <code>PUT /authenticate</code> (returns bearer token)</li>
+      <li>Create: <code>POST /artifact/{type}</code> (model|dataset|code)</li>
+      <li>List: <code>POST /artifacts</code> (optional regex search via <code>/artifact/byRegEx</code>)</li>
+      <li>Get/Delete: <code>GET/DELETE /artifacts/{type}/{id}</code></li>
+      <li>Rate: <code>GET /artifact/model/{id}/rate</code></li>
+      <li>Lineage: <code>GET /artifact/model/{id}/lineage</code></li>
+      <li>License: <code>POST /artifact/model/{id}/license-check</code></li>
+      <li>Cost: <code>GET /artifact/{type}/{id}/cost</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li><strong>401/403:</strong> Ensure the bearer token is set in the X-Authorization field.</li>
+      <li><strong>500:</strong> Try again after a few seconds; if persistent, re-auth and retry create.</li>
+      <li><strong>Network errors:</strong> Serve the app via HTTP (e.g., <code>python -m http.server 8000</code>) instead of opening from file://</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Hosting the UI</h2>
+    <p>Serve the <code>frontend/</code> folder via any static host:</p>
+    <ul>
+      <li><strong>AWS S3 + CloudFront:</strong> <code>aws s3 sync frontend s3://your-bucket --delete</code>, enable static website hosting, front with CloudFront.</li>
+      <li><strong>GitHub Pages:</strong> Push <code>frontend</code> to a branch and enable Pages.</li>
+      <li><strong>Simple server:</strong> <code>python -m http.server 8000</code> and share the URL on your LAN/VPN.</li>
+    </ul>
+  </div>
+</body>
+</html>

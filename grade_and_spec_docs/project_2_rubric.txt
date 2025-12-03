@@ -1,0 +1,39 @@
+Project 2 Rubric: Delivery
+
+Baseline Requirements: 45 points
+Autograder (35 Points)
+
+Get Artifact (3 points): Given a valid query, return all artifacts satisfying the indicated query.
+Upload Artifact (3 points): Given a valid request with a valid URL string, the artifact is created successfully and a valid response (201 or 202) is returned.
+Ingest Artifact (3 points): Given a request with the URL field pointing to an ingestible artifact, the artifact is successfully uploaded.
+Delete Artifact (2 points): Given a valid artifact ID, the delete endpoint removes the artifact.
+Rate Artifact (4 points): Given a valid artifact ID, the endpoint returns the complete metric scores for the artifact.
+Download Artifact (2 points): Given a valid artifact ID, returns the metadata and content for the artifact.
+Search for an Artifact using Regex (3 points): Given a regex string in query parameters, returns a list of artifacts that match that regex and avoids malicious regex.
+License Check (2 points): Given a GitHub URL, check if it has a valid license.
+Lineage (3 points): Given a model ID, check for the lineage graph of the model.
+Cost (3 points): Given a valid artifact ID, return the total cost of an artifact and its dependencies.
+Reset to Default State (2 points): After calling the endpoint, subsequent calls to get artifacts return an empty list.
+Concurrency (2 points): Fourteen clients concurrently rate fourteen models successfully without crash.
+Frontend Auto-test (3 points): Valid frontend interactions with ADA compliance using Lighthouse.
+
+Manual checks (scaled to 5 points)
+
+Test Evidence (3 points): Evidence that tests were performed on all features or justification for untested ones.
+LLM Usage (3 points): LLMs used to analyze README, artifact relationships, generate code, review PRs, or AWS Sagemaker use.
+Browser-based Interface (4 points): Evidence of browser interface implementing upload, query, download, accessibility, tests, and ADA compliance.
+
+Track-specific Requirements: 10 points
+
+Performance Track: API design, OpenAPI updates, throughput and latency measurement, bottleneck analysis, backend swapping, performance impact measurement.
+Security Track: API design, authentication with tokens, permissions, account deletion rules, secure password storage, historical module tracking.
+High-assurance Track: Test coverage requirements, error message triggering, AWS failure robustness, hermetic testing discussion, atomic update groups.
+Renegotiated Track: Points awarded proportional to Autograder + Manual score if requirements renegotiated.
+
+Manual Inspection for Engineering Practice: 10 points
+
+Documentation: README with project purpose, configuration, deployment, interaction. Three files with documentation.
+Effective Communication: Variable and function naming quality and style consistency.
+Appropriate CI/CD: Presence of pipeline config, successful CI, successful CD with documentation.
+Teamwork: Each teammate contributed at least 100 lines of code or reported hours.
+
