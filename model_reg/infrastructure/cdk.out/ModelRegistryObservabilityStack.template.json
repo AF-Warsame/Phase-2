@@ -1,0 +1,127 @@
+{
+ "Description": "Observability and monitoring for Model Registry",
+ "Resources": {
+  "ModelRegistryDashboard87796635": {
+   "Type": "AWS::CloudWatch::Dashboard",
+   "Properties": {
+    "DashboardBody": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"widgets\":[{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":0,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"API Latency (ms)\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"",
+       {
+        "Fn::ImportValue": "ModelRegistryStack:ExportsOutputRefAPILambda7D19CDDA2ED24484"
+       },
+       "\",{\"stat\":\"p99\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":6,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"API Errors\",\"region\":\"",
+       {
+        "Ref": "AWS::Region"
+       },
+       "\",\"metrics\":[[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"",
+       {
+        "Fn::ImportValue": "ModelRegistryStack:ExportsOutputRefAPILambda7D19CDDA2ED24484"
+       },
+       "\",{\"stat\":\"Sum\"}]],\"yAxis\":{}}}]}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryObservabilityStack/ModelRegistryDashboard/Resource"
+   }
+  },
+  "APIErrorsTopic2451A1DE": {
+   "Type": "AWS::SNS::Topic",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryObservabilityStack/APIErrorsTopic/Resource"
+   }
+  },
+  "APIErrorsTopicyouremailexamplecomC159852A": {
+   "Type": "AWS::SNS::Subscription",
+   "Properties": {
+    "Endpoint": "your-email@example.com",
+    "Protocol": "email",
+    "TopicArn": {
+     "Ref": "APIErrorsTopic2451A1DE"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryObservabilityStack/APIErrorsTopic/your-email@example.com/Resource"
+   }
+  },
+  "ErrorAlarmC73DBEA2": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "APIErrorsTopic2451A1DE"
+     }
+    ],
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "FunctionName",
+      "Value": {
+       "Fn::ImportValue": "ModelRegistryStack:ExportsOutputRefAPILambda7D19CDDA2ED24484"
+      }
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "Errors",
+    "Namespace": "AWS/Lambda",
+    "Period": 300,
+    "Statistic": "Sum",
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryObservabilityStack/ErrorAlarm/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/03IQQ6CMBCF4bOwL6OFExg9gAH3pgw1HYGWdNoQ0/TuWlno6v3va0AeJchKbVzjONUzDZD6oHASH7onnF0cNxXQQLooNoNTfhTnh/2d06z8UugbWbBlSDe3Ehbco48Do6c1kLNF/3/ORTrNLnrUWVxfwTh7aEE20FZPJqp9tIEWDd2+b3EMi2m1AAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryObservabilityStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

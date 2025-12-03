@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model Registry Client</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --muted: #9ca3af;
+      --danger: #f87171;
+      --success: #34d399;
+    }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 10% 20%, #111827 0%, #0b1224 35%, #0a1020 60%, #060912 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1f2937;
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.9);
+      z-index: 10;
+    }
+    h1 { margin: 0; font-size: 20px; letter-spacing: 0.4px; }
+    main { max-width: 1400px; margin: 24px auto 80px; padding: 0 16px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .card {
+      background: var(--card);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+    label { display: block; margin: 8px 0 4px; font-weight: 600; color: var(--muted); }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #22d3ee, #3b82f6);
+      color: #0b1020;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(34,211,238,0.3); }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    #response { white-space: pre-wrap; background: #0b1224; padding: 12px; border-radius: 10px; min-height: 180px; border: 1px solid #1f2937; }
+    .pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; background: #0b1224; color: var(--muted); font-size: 12px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .layout { display: flex; gap: 18px; }
+    .content { flex: 1; min-width: 0; }
+    .response-pane {
+      position: sticky;
+      top: 12px;
+      align-self: flex-start;
+      width: 360px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+    }
+    @media (max-width: 1000px) {
+      .layout { flex-direction: column; }
+      .response-pane { position: relative; width: 100%; max-height: none; }
+    }
+    @media (max-width: 640px) { header { flex-direction: column; align-items: flex-start; gap: 8px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <h1>Model Registry Client</h1>
+      <a href="docs.html" class="pill" style="text-decoration:none;">Docs</a>
+    </div>
+    <div class="pill" aria-live="polite">Status: <span id="status">Idle</span></div>
+  </header>
+  <main>
+    <div class="layout">
+    <div class="content">
+    <div class="card" aria-label="Configuration">
+      <label for="api">API Base URL</label>
+      <input id="api" type="url" value="https://7c1jore560.execute-api.us-east-1.amazonaws.com/prod" aria-required="true" />
+      <label for="token">Bearer Token (X-Authorization)</label>
+      <input id="token" type="text" placeholder="bearer xxx" aria-required="true" />
+    </div>
+
+    <div class="grid" role="region" aria-label="Actions">
+      <div class="card">
+        <h3>Health</h3>
+        <button onclick="health()">GET /health</button>
+        <button onclick="healthComponents()">GET /health/components</button>
+      </div>
+
+      <div class="card">
+        <h3>Authenticate</h3>
+        <label for="auth-user">User</label>
+        <input id="auth-user" type="text" placeholder="admin" />
+        <label for="auth-pass">Password</label>
+        <input id="auth-pass" type="password" placeholder="pass" />
+        <button onclick="authenticate()">PUT /authenticate</button>
+      </div>
+
+      <div class="card">
+        <h3>Create Artifact</h3>
+        <label for="artifact-type">Type</label>
+        <select id="artifact-type">
+          <option>model</option><option>dataset</option><option>code</option>
+        </select>
+        <label for="artifact-url">Source URL</label>
+        <input id="artifact-url" type="url" placeholder="https://huggingface.co/..." />
+        <label for="artifact-name">Name (optional)</label>
+        <input id="artifact-name" type="text" />
+        <button onclick="createArtifact()">POST /artifact/{type}</button>
+      </div>
+
+      <div class="card">
+        <h3>List & Search</h3>
+        <label for="regex">Regex</label>
+        <input id="regex" type="text" placeholder=".*bert.*" />
+        <button onclick="listArtifacts()">POST /artifacts</button>
+        <button onclick="searchRegex()">POST /artifact/byRegEx</button>
+      </div>
+
+      <div class="card">
+        <h3>Artifact Actions</h3>
+        <label for="artifact-id">Artifact ID</label>
+        <input id="artifact-id" type="text" />
+        <div class="row">
+          <button onclick="getArtifact()">GET</button>
+          <button onclick="deleteArtifact()" style="background: linear-gradient(135deg, #f87171, #ef4444); color: #fff;">DELETE</button>
+        </div>
+        <div class="row">
+          <button onclick="rateArtifact()">/rate</button>
+          <button onclick="lineageArtifact()">/lineage</button>
+        </div>
+        <div class="row">
+          <button onclick="licenseArtifact()">/license-check</button>
+          <button onclick="costArtifact()">/cost</button>
+        </div>
+      </div>
+    </div>
+
+    </div> <!-- content -->
+    <aside class="response-pane" aria-live="polite" aria-label="Response panel">
+      <div class="card">
+        <h3>Response</h3>
+        <div id="response">Awaiting request…</div>
+      </div>
+    </aside>
+    </div> <!-- layout -->
+  </main>
+
+  <script>
+    const qs = id => document.getElementById(id);
+    const setStatus = s => qs('status').textContent = s;
+    const api = () => qs('api').value.replace(/\/$/, '');
+    const headers = (json=true) => {
+      const h = { 'X-Authorization': qs('token').value || 'bearer test' };
+      if (json) h['Content-Type'] = 'application/json';
+      return h;
+    };
+    const show = obj => qs('response').textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+
+    async function call(path, opts={}) {
+      try {
+        setStatus('Requesting');
+        const res = await fetch(api() + path, opts);
+        const text = await res.text();
+        let body;
+        try { body = JSON.parse(text); } catch { body = text; }
+        show({ status: res.status, body });
+        setStatus('Idle');
+      } catch (e) {
+        show({ error: e.message });
+        setStatus('Error');
+      }
+    }
+
+    const health = () => call('/health');
+    const healthComponents = () => call('/health/components');
+    const authenticate = () => {
+      const body = {
+        user: { name: qs('auth-user').value || 'admin', is_admin: true },
+        secret: { password: qs('auth-pass').value || 'pass' },
+      };
+      call('/authenticate', { method: 'PUT', headers: headers(), body: JSON.stringify(body) });
+    };
+    const createArtifact = () => {
+      const type = qs('artifact-type').value;
+      const body = { url: qs('artifact-url').value, name: qs('artifact-name').value || undefined };
+      call(`/artifact/${type}`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+    };
+    const listArtifacts = () => call('/artifacts', { method: 'POST', headers: headers(), body: '[]' });
+    const searchRegex = () => {
+      const body = { regex: qs('regex').value || '.*' };
+      call('/artifact/byRegEx', { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+    };
+    const getArtifact = () => {
+      const id = qs('artifact-id').value;
+      const type = qs('artifact-type').value;
+      call(`/artifacts/${type}/${id}`, { headers: headers(false) });
+    };
+    const deleteArtifact = () => {
+      const id = qs('artifact-id').value;
+      const type = qs('artifact-type').value;
+      call(`/artifacts/${type}/${id}`, { method: 'DELETE', headers: headers(false) });
+    };
+    const rateArtifact = () => {
+      const id = qs('artifact-id').value;
+      call(`/artifact/model/${id}/rate`, { headers: headers(false) });
+    };
+    const lineageArtifact = () => {
+      const id = qs('artifact-id').value;
+      call(`/artifact/model/${id}/lineage`, { headers: headers(false) });
+    };
+    const licenseArtifact = () => {
+      const id = qs('artifact-id').value;
+      const body = { github_url: 'https://github.com/google-research/bert' };
+      call(`/artifact/model/${id}/license-check`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+    };
+    const costArtifact = () => {
+      const id = qs('artifact-id').value;
+      const type = qs('artifact-type').value;
+      call(`/artifact/${type}/${id}/cost`, { headers: headers(false) });
+    };
+  </script>
+</body>
+</html>

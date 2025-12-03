@@ -1,0 +1,604 @@
+{
+ "Description": "Model Registry Infrastructure - Phase 2",
+ "Resources": {
+  "S3Bucket07682993": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/S3Bucket/Resource"
+   }
+  },
+  "DynamoDBTable59784FC0": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "artifact_id",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "artifact_id",
+      "KeyType": "HASH"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/DynamoDBTable/Resource"
+   }
+  },
+  "CognitoUserPool53E37E69": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_phone_number",
+       "Priority": 1
+      },
+      {
+       "Name": "verified_email",
+       "Priority": 2
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": true
+    },
+    "EmailVerificationMessage": "Hello {username}, Thanks for signing up. Your verification code is {####}.",
+    "EmailVerificationSubject": "Verify your account for Model Registry",
+    "Policies": {
+     "PasswordPolicy": {
+      "MinimumLength": 12,
+      "RequireLowercase": true,
+      "RequireNumbers": true,
+      "RequireSymbols": true,
+      "RequireUppercase": true
+     }
+    },
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "Hello {username}, Thanks for signing up. Your verification code is {####}.",
+     "EmailSubject": "Verify your account for Model Registry",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/CognitoUserPool/Resource"
+   }
+  },
+  "DefaultAdminGroup": {
+   "Type": "AWS::Cognito::UserPoolGroup",
+   "Properties": {
+    "GroupName": "Admins",
+    "UserPoolId": {
+     "Ref": "CognitoUserPool53E37E69"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/DefaultAdminGroup"
+   }
+  },
+  "APILambdaExecutionRole4FC34678": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonS3FullAccess"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonDynamoDBFullAccess"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APILambdaExecutionRole/Resource"
+   }
+  },
+  "APILambda7D19CDDA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-424851482122-us-east-1",
+     "S3Key": "0fe533fe349b5caa09223b7c7b3a987a6ecfb990a60acb5ec71fc60d74533d19.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "S3_BUCKET_NAME": {
+       "Ref": "S3Bucket07682993"
+      },
+      "DYNAMODB_TABLE_NAME": {
+       "Ref": "DynamoDBTable59784FC0"
+      },
+      "COGNITO_USER_POOL_ID": {
+       "Ref": "CognitoUserPool53E37E69"
+      }
+     }
+    },
+    "Handler": "infrastructure/app.lambda_handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "APILambdaExecutionRole4FC34678",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.9",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "APILambdaExecutionRole4FC34678"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APILambda/Resource",
+    "aws:asset:path": "asset.0fe533fe349b5caa09223b7c7b3a987a6ecfb990a60acb5ec71fc60d74533d19",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "APIGateway71B6BBE0": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Description": "API for managing AI/ML model packages with rating and discovery.",
+    "Name": "Model Registry API"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Resource"
+   }
+  },
+  "APIGatewayCloudWatchRole4835D6D9": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/CloudWatchRole/Resource"
+   }
+  },
+  "APIGatewayAccount871F0E99": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "APIGatewayCloudWatchRole4835D6D9",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "APIGateway71B6BBE0"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Account"
+   }
+  },
+  "APIGatewayDeploymentF0E5ED0A59d40447e6b36200f7e5b90c4cd4f83b": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "API for managing AI/ML model packages with rating and discovery.",
+    "RestApiId": {
+     "Ref": "APIGateway71B6BBE0"
+    }
+   },
+   "DependsOn": [
+    "APIGatewayproxyANYFFA55769",
+    "APIGatewayproxy4C63E7C2",
+    "APIGatewayANY3E5F1055"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Deployment/Resource"
+   }
+  },
+  "APIGatewayDeploymentStageprod9BCCD7C3": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "APIGatewayDeploymentF0E5ED0A59d40447e6b36200f7e5b90c4cd4f83b"
+    },
+    "RestApiId": {
+     "Ref": "APIGateway71B6BBE0"
+    },
+    "StageName": "prod"
+   },
+   "DependsOn": [
+    "APIGatewayAccount871F0E99"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/DeploymentStage.prod/Resource"
+   }
+  },
+  "APIGatewayproxy4C63E7C2": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "APIGateway71B6BBE0",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "{proxy+}",
+    "RestApiId": {
+     "Ref": "APIGateway71B6BBE0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/{proxy+}/Resource"
+   }
+  },
+  "APIGatewayproxyANYApiPermissionModelRegistryStackAPIGateway709FEE25ANYproxy037A7419": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "APILambda7D19CDDA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:424851482122:",
+       {
+        "Ref": "APIGateway71B6BBE0"
+       },
+       "/",
+       {
+        "Ref": "APIGatewayDeploymentStageprod9BCCD7C3"
+       },
+       "/*/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/{proxy+}/ANY/ApiPermission.ModelRegistryStackAPIGateway709FEE25.ANY..{proxy+}"
+   }
+  },
+  "APIGatewayproxyANYApiPermissionTestModelRegistryStackAPIGateway709FEE25ANYproxyDC1CCC0F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "APILambda7D19CDDA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:424851482122:",
+       {
+        "Ref": "APIGateway71B6BBE0"
+       },
+       "/test-invoke-stage/*/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/{proxy+}/ANY/ApiPermission.Test.ModelRegistryStackAPIGateway709FEE25.ANY..{proxy+}"
+   }
+  },
+  "APIGatewayproxyANYFFA55769": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "APILambda7D19CDDA",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "APIGatewayproxy4C63E7C2"
+    },
+    "RestApiId": {
+     "Ref": "APIGateway71B6BBE0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/{proxy+}/ANY/Resource"
+   }
+  },
+  "APIGatewayANYApiPermissionModelRegistryStackAPIGateway709FEE25ANY637267B6": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "APILambda7D19CDDA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:424851482122:",
+       {
+        "Ref": "APIGateway71B6BBE0"
+       },
+       "/",
+       {
+        "Ref": "APIGatewayDeploymentStageprod9BCCD7C3"
+       },
+       "/*/"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/ANY/ApiPermission.ModelRegistryStackAPIGateway709FEE25.ANY.."
+   }
+  },
+  "APIGatewayANYApiPermissionTestModelRegistryStackAPIGateway709FEE25ANY71CD1BF7": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "APILambda7D19CDDA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:424851482122:",
+       {
+        "Ref": "APIGateway71B6BBE0"
+       },
+       "/test-invoke-stage/*/"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/ANY/ApiPermission.Test.ModelRegistryStackAPIGateway709FEE25.ANY.."
+   }
+  },
+  "APIGatewayANY3E5F1055": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "ANY",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "APILambda7D19CDDA",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "APIGateway71B6BBE0",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "APIGateway71B6BBE0"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/APIGateway/Default/ANY/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/22Qy07DMBBFv6V715DmC1IQbEBEAdaV4wypSeyJ/FCJLP87fhTIgtU9npl7NeMDrW4rWu3Yxez5MO1n0VP/ahmfSCydvKmpPzo+gSV3H+pKRY7MQCDDqpjEIbreWD9DmsoQCMdRCYvUvxvQLeKcev/xo0a3BCKYpL7DkpE0kJnJfmDUPzjFrUCVOltuQUthTHwFYuoTMwasoU0SwhYxMgsXtlL/lHM6MLZZRI7/w4ZzdMqSe1hmXCWofOnmFX9jzDsViFZ0mkM6n7Qav9afyjW48DPYMw6pVCiEXyfJC6Y0ocY08eLs4uzWHki7Rpe6qWl1oPXu0wix13FNIYF2Rb8Bfw3Ku7sBAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "ModelRegistryStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "APIGatewayEndpoint038C57B1": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "APIGateway71B6BBE0"
+      },
+      ".execute-api.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "APIGatewayDeploymentStageprod9BCCD7C3"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "ExportsOutputRefAPILambda7D19CDDA2ED24484": {
+   "Value": {
+    "Ref": "APILambda7D19CDDA"
+   },
+   "Export": {
+    "Name": "ModelRegistryStack:ExportsOutputRefAPILambda7D19CDDA2ED24484"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -48,7 +48,11 @@ check_logging_env() {
 # -------------------
 PYTHON_CMD=""
 check_python() {
-    if command -v python3 &>/dev/null; then
+    if [[ -x "venv/bin/python" ]]; then
+        PYTHON_CMD="venv/bin/python"
+    elif [[ -x "venv/Scripts/python.exe" ]]; then
+        PYTHON_CMD="venv/Scripts/python.exe"
+    elif command -v python3 &>/dev/null; then
         PYTHON_CMD="python3"
     elif command -v python &>/dev/null; then
         PYTHON_CMD="python"
@@ -64,14 +68,16 @@ check_python() {
 install_deps() {
     check_python
     if [[ -f "requirements.txt" ]]; then
-        $PYTHON_CMD -m pip install --quiet -r requirements.txt || {
+        $PYTHON_CMD -m pip install --quiet -r requirements.txt || \
+        $PYTHON_CMD -m pip install --quiet --break-system-packages -r requirements.txt || {
             echo "{\"error\": \"Failed to install requirements.txt\"}"
             exit 1
         }
     fi
     if [[ -f "pyproject.toml" ]]; then
         # skip -e to avoid setup.py errors
-        $PYTHON_CMD -m pip install --quiet . || true
+        $PYTHON_CMD -m pip install --quiet . || \
+        $PYTHON_CMD -m pip install --quiet --break-system-packages . || true
     fi
     exit 0
 }
