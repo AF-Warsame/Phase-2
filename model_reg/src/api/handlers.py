@@ -34,6 +34,18 @@ logger.setLevel(logging.INFO)
 package_service = None
 rating_service = None
 
+# Compatible licenses for license checking
+COMPATIBLE_LICENSES = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "LGPLv2.1",
+    "LGPL-2.1",
+    "Python-2.0",
+]
+
 
 class RegistryStore:
     """Persistence layer backed by DynamoDB + S3."""
@@ -318,10 +330,7 @@ class RegistryStore:
         ramp_up_time = 0.7
         bus_factor = 0.6
         performance_claims = 0.75
-        license_score = 1.0 if record.get("license") in [
-            "MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", 
-            "ISC", "LGPLv2.1", "LGPL-2.1", "Python-2.0"
-        ] else 0.5
+        license_score = 1.0 if record.get("license") in COMPATIBLE_LICENSES else 0.5
         dataset_and_code = 0.8
         dataset_quality = 0.75
         code_quality = 0.85
@@ -380,19 +389,9 @@ class RegistryStore:
         if not record:
             return None
         license_name = record.get("license", "Apache-2.0")
-        compatible = [
-            "MIT",
-            "Apache-2.0",
-            "BSD-2-Clause",
-            "BSD-3-Clause",
-            "ISC",
-            "LGPLv2.1",
-            "LGPL-2.1",
-            "Python-2.0",
-        ]
         if github_url and "apache" in github_url.lower():
             return True
-        return license_name in compatible
+        return license_name in COMPATIBLE_LICENSES
 
     def get_artifact_data(self, artifact_id: str) -> Optional[bytes]:
         record = self.get_artifact(artifact_id)
@@ -464,6 +463,7 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
     
     if not api_url:
         # Try to construct from API Gateway event
+        # API Gateway normalizes headers, but we check both cases for robustness
         headers = event.get("headers", {})
         host = headers.get("Host") or headers.get("host")
         
@@ -472,8 +472,9 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
             protocol = "https" if headers.get("X-Forwarded-Proto") == "https" else "http"
             api_url = f"{protocol}://{host}"
         else:
-            # Fallback to a placeholder
-            api_url = "https://api.example.com"
+            # If we cannot determine the API URL, construct a relative path
+            # This will work if the download endpoint is on the same domain
+            return f"/download/{artifact_name}/{artifact_id}"
     
     # Clean up the URL
     api_url = api_url.rstrip("/")
@@ -834,13 +835,13 @@ def handle_delete_artifact(
     if auth_error:
         return auth_error
 
-    # Verify artifact exists and type matches
+    # Verify artifact exists and type matches before deletion
     record = _get_registry_store().get_artifact(artifact_id, artifact_type)
     if not record:
         return error_response(404, "Artifact not found")
     
-    if not _get_registry_store().delete_artifact(artifact_id):
-        return error_response(404, "Artifact not found")
+    # Delete the artifact (we already know it exists)
+    _get_registry_store().delete_artifact(artifact_id)
     return success_response({}, 204)
 
 
