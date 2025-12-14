@@ -239,8 +239,9 @@ class RegistryStore:
         items = response.get("Items", [])
         matched = []
         for i in items:
-            name = i.get("name", "")
-            readme = i.get("readme", "")
+            name = str(i.get("name", ""))
+            readme = str(i.get("readme", ""))
+            # Search in both name and readme content
             if compiled.search(name) or compiled.search(readme):
                 matched.append(
                     {
@@ -478,14 +479,19 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
     
     if not api_url:
         # Try to construct from API Gateway event
-        # API Gateway normalizes headers to lowercase
+        # Normalize headers to lowercase for consistent access
         headers = event.get("headers", {})
-        host = headers.get("host")  # API Gateway uses lowercase
+        if headers:
+            headers = {k.lower(): v for k, v in headers.items()}
+        
+        host = headers.get("host")
         
         if host:
             # Use the host from the request
-            # Check for x-forwarded-proto (lowercase)
-            protocol = "https" if headers.get("x-forwarded-proto") == "https" else "http"
+            # Check for x-forwarded-proto
+            protocol = headers.get("x-forwarded-proto", "https")
+            if protocol not in ["http", "https"]:
+                protocol = "https"
             api_url = f"{protocol}://{host}"
         else:
             # If we cannot determine the API URL, construct a relative path
