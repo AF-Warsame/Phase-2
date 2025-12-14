@@ -239,8 +239,9 @@ class RegistryStore:
         items = response.get("Items", [])
         matched = []
         for i in items:
-            name = i.get("name", "")
-            readme = i.get("readme", "")
+            name = str(i.get("name", ""))
+            readme = str(i.get("readme", ""))
+            # Search in both name and readme content
             if compiled.search(name) or compiled.search(readme):
                 matched.append(
                     {
@@ -285,37 +286,52 @@ class RegistryStore:
         record = self.get_artifact(artifact_id)
         if not record:
             return None
-        nodes = [
-            {
-                "artifact_id": int(record["artifact_id"]),
-                "name": record.get("name"),
-                "source": "config_json",
-            }
-        ]
+        
+        nodes = []
         edges = []
-        for dep_id in record.get("dependencies", []):
-            dep = self.get_artifact(dep_id)
-            if dep:
-                nodes.append(
-                    {
-                        "artifact_id": int(dep["artifact_id"]),
-                        "name": dep.get("name"),
-                        "source": "config_json",
-                    }
-                )
-                edges.append(
-                    {
-                        "from_node_artifact_id": int(dep["artifact_id"]),
-                        "to_node_artifact_id": int(record["artifact_id"]),
+        visited = set()
+        
+        def add_node_and_deps(artifact_rec, is_root=False):
+            """Recursively add nodes and their dependencies"""
+            art_id = artifact_rec.get("artifact_id")
+            if art_id in visited:
+                return
+            visited.add(art_id)
+            
+            # Add the node
+            nodes.append({
+                "artifact_id": int(art_id),
+                "name": artifact_rec.get("name"),
+                "source": "config_json",
+            })
+            
+            # Process dependencies
+            for dep_id in artifact_rec.get("dependencies", []):
+                dep = self.get_artifact(dep_id)
+                if dep:
+                    # Add edge from dependency to this artifact
+                    edges.append({
+                        "from_node_artifact_id": int(dep_id),
+                        "to_node_artifact_id": int(art_id),
                         "relationship": "dependency",
-                    }
-                )
+                    })
+                    # Recursively add the dependency
+                    add_node_and_deps(dep)
+        
+        # Start with the root artifact
+        add_node_and_deps(record, is_root=True)
+        
         return {"nodes": nodes, "edges": edges}
 
     def rate(self, artifact_id: str) -> Optional[Dict[str, Any]]:
         record = self.get_artifact(artifact_id)
         if not record:
             return None
+        
+        # Ensure name is present - required field per spec
+        name = record.get("name")
+        if name is None or name == "":
+            name = f"artifact-{artifact_id}"
         
         # Build complete ModelRating response per OpenAPI spec
         rating_data = record.get("rating", {})
@@ -349,7 +365,7 @@ class RegistryStore:
         latency = 0.05
         
         return {
-            "name": record.get("name"),
+            "name": name,
             "category": record.get("artifact_type", "model"),
             "net_score": net_score,
             "net_score_latency": latency,
@@ -463,14 +479,18 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
     
     if not api_url:
         # Try to construct from API Gateway event
-        # API Gateway normalizes headers to lowercase
+        # Normalize headers to lowercase for consistent access
         headers = event.get("headers", {})
-        host = headers.get("host")  # API Gateway uses lowercase
+        normalized_headers = {k.lower(): v for k, v in headers.items()} if headers else {}
+        
+        host = normalized_headers.get("host")
         
         if host:
             # Use the host from the request
-            # Check for x-forwarded-proto (lowercase)
-            protocol = "https" if headers.get("x-forwarded-proto") == "https" else "http"
+            # Check for x-forwarded-proto
+            protocol = normalized_headers.get("x-forwarded-proto", "https")
+            if protocol not in ["http", "https"]:
+                protocol = "https"
             api_url = f"{protocol}://{host}"
         else:
             # If we cannot determine the API URL, construct a relative path
@@ -578,6 +598,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Enumerate artifacts
         if normalized_path == "/artifacts" and method == "POST":
             return handle_list_artifacts(event)
+
+        # Download artifact
+        if normalized_path.startswith("/download/") and method == "GET":
+            parts = normalized_path.split("/")
+            # /download/{artifact_name}/{artifact_id}
+            if len(parts) >= 4:
+                artifact_name = parts[2]
+                artifact_id = parts[3]
+                return handle_download_artifact(artifact_name, artifact_id, event)
 
         # Reset (spec expects DELETE)
         if normalized_path == "/reset" and method in ("DELETE", "POST"):
@@ -847,7 +876,37 @@ def handle_delete_artifact(
         logger.error(f"Failed to delete artifact {artifact_id} after verification")
         return error_response(500, "Failed to delete artifact")
     
-    return success_response({}, 204)
+    return success_response({}, 200)
+
+
+def handle_download_artifact(
+    artifact_name: str, artifact_id: str, event: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Handle artifact download requests"""
+    # Verify the artifact exists and get its actual name
+    record = _get_registry_store().get_artifact(artifact_id)
+    if not record:
+        return error_response(404, "Artifact not found")
+    
+    # Get the artifact data
+    blob = _get_registry_store().get_artifact_data(artifact_id)
+    if not blob:
+        return error_response(404, "Artifact data not found")
+    
+    # Use the actual artifact name from the database for the filename
+    actual_name = record.get("name", artifact_name)
+    
+    # Return the binary data with appropriate headers
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{actual_name}-{artifact_id}.zip"',
+            "Access-Control-Allow-Origin": "*",
+        },
+        "body": base64.b64encode(blob).decode("utf-8"),
+        "isBase64Encoded": True,
+    }
 
 
 def handle_create_artifact(artifact_type: str, event: Dict[str, Any]) -> Dict[str, Any]:
