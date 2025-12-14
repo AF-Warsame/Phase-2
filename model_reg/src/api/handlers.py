@@ -317,6 +317,11 @@ class RegistryStore:
         if not record:
             return None
         
+        # Ensure name is present - required field per spec
+        name = record.get("name")
+        if not name:
+            name = f"artifact-{artifact_id}"
+        
         # Build complete ModelRating response per OpenAPI spec
         rating_data = record.get("rating", {})
         
@@ -349,7 +354,7 @@ class RegistryStore:
         latency = 0.05
         
         return {
-            "name": record.get("name"),
+            "name": name,
             "category": record.get("artifact_type", "model"),
             "net_score": net_score,
             "net_score_latency": latency,
@@ -578,6 +583,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Enumerate artifacts
         if normalized_path == "/artifacts" and method == "POST":
             return handle_list_artifacts(event)
+
+        # Download artifact
+        if normalized_path.startswith("/download/") and method == "GET":
+            parts = normalized_path.split("/")
+            # /download/{artifact_name}/{artifact_id}
+            if len(parts) >= 4:
+                artifact_name = parts[2]
+                artifact_id = parts[3]
+                return handle_download_artifact(artifact_name, artifact_id, event)
 
         # Reset (spec expects DELETE)
         if normalized_path == "/reset" and method in ("DELETE", "POST"):
@@ -847,7 +861,35 @@ def handle_delete_artifact(
         logger.error(f"Failed to delete artifact {artifact_id} after verification")
         return error_response(500, "Failed to delete artifact")
     
-    return success_response({}, 204)
+    return success_response({}, 200)
+
+
+def handle_download_artifact(
+    artifact_name: str, artifact_id: str, event: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Handle artifact download requests"""
+    # Download endpoint may not require auth for public artifacts
+    # If auth is required, uncomment the following:
+    # auth_error = _require_auth(event)
+    # if auth_error:
+    #     return auth_error
+    
+    # Get the artifact data
+    blob = _get_registry_store().get_artifact_data(artifact_id)
+    if not blob:
+        return error_response(404, "Artifact not found")
+    
+    # Return the binary data with appropriate headers
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{artifact_name}-{artifact_id}.zip"',
+            "Access-Control-Allow-Origin": "*",
+        },
+        "body": base64.b64encode(blob).decode("utf-8"),
+        "isBase64Encoded": True,
+    }
 
 
 def handle_create_artifact(artifact_type: str, event: Dict[str, Any]) -> Dict[str, Any]:
