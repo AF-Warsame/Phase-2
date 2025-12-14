@@ -463,13 +463,14 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
     
     if not api_url:
         # Try to construct from API Gateway event
-        # API Gateway normalizes headers, but we check both cases for robustness
+        # API Gateway normalizes headers to lowercase
         headers = event.get("headers", {})
-        host = headers.get("Host") or headers.get("host")
+        host = headers.get("host")  # API Gateway uses lowercase
         
         if host:
             # Use the host from the request
-            protocol = "https" if headers.get("X-Forwarded-Proto") == "https" else "http"
+            # Check for x-forwarded-proto (lowercase)
+            protocol = "https" if headers.get("x-forwarded-proto") == "https" else "http"
             api_url = f"{protocol}://{host}"
         else:
             # If we cannot determine the API URL, construct a relative path
@@ -840,8 +841,12 @@ def handle_delete_artifact(
     if not record:
         return error_response(404, "Artifact not found")
     
-    # Delete the artifact (we already know it exists)
-    _get_registry_store().delete_artifact(artifact_id)
+    # Delete the artifact
+    if not _get_registry_store().delete_artifact(artifact_id):
+        # Deletion failed (shouldn't happen since we just verified it exists)
+        logger.error(f"Failed to delete artifact {artifact_id} after verification")
+        return error_response(500, "Failed to delete artifact")
+    
     return success_response({}, 204)
 
 
