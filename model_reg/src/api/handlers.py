@@ -94,7 +94,12 @@ class RegistryStore:
         record["audit"] = audits
 
     def create_artifact(
-        self, artifact_type: str, source_url: str, name: Optional[str] = None
+        self,
+        artifact_type: str,
+        source_url: str,
+        name: Optional[str] = None,
+        readme: Optional[str] = None,
+        dependencies: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         artifact_type = artifact_type.lower()
         artifact_id = self._next_id()
@@ -105,7 +110,7 @@ class RegistryStore:
         )
 
         # Build minimal zip content to store in S3
-        readme_content = f"# {resolved_name}\n\nSource: {source_url}\n"
+        readme_content = readme or f"# {resolved_name}\n\nSource: {source_url}\n"
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zf:
             zf.writestr("README.md", readme_content)
@@ -136,7 +141,7 @@ class RegistryStore:
                 "tree_score": Decimal("0.5"),
             },
             "license": "Apache-2.0",
-            "dependencies": [],
+            "dependencies": dependencies or [],
             "audit": [],
         }
         self._add_audit(record, "CREATE")
@@ -197,6 +202,12 @@ class RegistryStore:
             if isinstance(updates, dict)
             else None
         )
+        readme = (
+            updates.get("readme")
+            or updates.get("data", {}).get("readme")
+            if isinstance(updates, dict)
+            else None
+        )
         source_url = (
             updates.get("data", {}).get("url") if isinstance(updates, dict) else None
         )
@@ -206,6 +217,8 @@ class RegistryStore:
             item["name"] = name
         if source_url:
             item["source_url"] = source_url
+        if readme:
+            item["readme"] = readme
         if license_name:
             item["license"] = license_name
         if isinstance(deps, list):
@@ -230,11 +243,11 @@ class RegistryStore:
             return False
         return True
 
-    def regex_search(self, pattern: str) -> List[Dict[str, Any]]:
+    def regex_search(self, pattern: str) -> Optional[List[Dict[str, Any]]]:
         try:
-            compiled = re.compile(pattern)
+            compiled = re.compile(pattern, re.IGNORECASE)
         except re.error:
-            return []
+            return None
         response = self.table.scan()
         items = response.get("Items", [])
         matched = []
@@ -300,9 +313,11 @@ class RegistryStore:
             
             # Add the node
             nodes.append({
+                "node": int(art_id),
                 "artifact_id": int(art_id),
                 "name": artifact_rec.get("name"),
                 "source": "config_json",
+                "metadata": {"source_url": artifact_rec.get("source_url")},
             })
             
             # Process dependencies
@@ -337,10 +352,16 @@ class RegistryStore:
         rating_data = record.get("rating", {})
         
         # Extract stored scores or use defaults
-        net_score = float(rating_data.get("rating_score", 0.8))
-        reproducibility = float(rating_data.get("reproducibility_score", 0.7))
-        reviewedness = float(rating_data.get("reviewedness_score", 0.6))
-        tree_score_val = float(rating_data.get("tree_score", 0.5))
+        def _as_float(val: Any, default: float) -> float:
+            try:
+                return float(val)
+            except Exception:
+                return default
+
+        net_score = _as_float(rating_data.get("rating_score"), 0.8)
+        reproducibility = _as_float(rating_data.get("reproducibility_score"), 0.7)
+        reviewedness = _as_float(rating_data.get("reviewedness_score"), 0.6)
+        tree_score_val = _as_float(rating_data.get("tree_score"), 0.5)
         
         # Calculate other metrics based on available data
         ramp_up_time = 0.7
@@ -464,6 +485,11 @@ def _get_registry_store() -> RegistryStore:
     return registry_store
 
 
+def _normalize_artifact_type(artifact_type: str) -> str:
+    """Normalize artifact type to the expected lowercase token"""
+    return str(artifact_type or "").strip().lower()
+
+
 def _require_auth(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     token = headers.get("x-authorization") or headers.get("authorization")
@@ -474,6 +500,9 @@ def _require_auth(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: str) -> str:
     """Generate a proper HTTP download URL for an artifact"""
+    from urllib.parse import quote
+
+    safe_name = quote(str(artifact_name or "").strip() or f"artifact-{artifact_id}")
     # Try to get the API base URL from the event or environment
     api_url = os.getenv("API_URL")
     
@@ -483,26 +512,26 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
         headers = event.get("headers", {})
         normalized_headers = {k.lower(): v for k, v in headers.items()} if headers else {}
         
-        host = normalized_headers.get("host")
+        host = normalized_headers.get("host") or event.get("requestContext", {}).get("domainName")
         
         if host:
             # Use the host from the request
             # Check for x-forwarded-proto
-            protocol = normalized_headers.get("x-forwarded-proto", "https")
+            protocol = normalized_headers.get("x-forwarded-proto") or normalized_headers.get("cloudfront-forwarded-proto") or "http"
             if protocol not in ["http", "https"]:
-                protocol = "https"
+                protocol = "http"
             api_url = f"{protocol}://{host}"
         else:
             # If we cannot determine the API URL, construct a relative path
             # This will work if the download endpoint is on the same domain
-            return f"/download/{artifact_name}/{artifact_id}"
+            return f"/download/{safe_name}/{artifact_id}"
     
     # Clean up the URL
     api_url = api_url.rstrip("/")
     
     # Return a download URL that could be used to retrieve the artifact
     # Using the artifact ID in the path
-    return f"{api_url}/download/{artifact_name}/{artifact_id}"
+    return f"{api_url}/download/{safe_name}/{artifact_id}"
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -729,6 +758,8 @@ def handle_artifact_by_regex(event: Dict[str, Any]) -> Dict[str, Any]:
         return error_response(400, "Missing regex")
 
     matches = _get_registry_store().regex_search(body["regex"])
+    if matches is None:
+        return error_response(400, "Invalid regex")
     if not matches:
         return error_response(404, "No artifacts matched regex")
     return success_response(matches)
@@ -796,6 +827,7 @@ def handle_artifact_cost(
     auth_error = _require_auth(event)
     if auth_error:
         return auth_error
+    artifact_type = _normalize_artifact_type(artifact_type)
 
     # Ensure artifact exists and type matches
     record = _get_registry_store().get_artifact(artifact_id, artifact_type)
@@ -814,7 +846,7 @@ def handle_get_artifact(
     auth_error = _require_auth(event)
     if auth_error:
         return auth_error
-
+    artifact_type = _normalize_artifact_type(artifact_type)
     record = _get_registry_store().get_artifact(artifact_id, artifact_type)
     if not record:
         return error_response(404, "Artifact not found")
@@ -839,7 +871,7 @@ def handle_update_artifact(
     auth_error = _require_auth(event)
     if auth_error:
         return auth_error
-
+    artifact_type = _normalize_artifact_type(artifact_type)
     updates = _parse_json_body(event)
     if not isinstance(updates, dict):
         return error_response(400, "Invalid update payload")
@@ -864,6 +896,7 @@ def handle_delete_artifact(
     auth_error = _require_auth(event)
     if auth_error:
         return auth_error
+    artifact_type = _normalize_artifact_type(artifact_type)
 
     # Verify artifact exists and type matches before deletion
     record = _get_registry_store().get_artifact(artifact_id, artifact_type)
@@ -914,7 +947,8 @@ def handle_create_artifact(artifact_type: str, event: Dict[str, Any]) -> Dict[st
     if auth_error:
         return auth_error
 
-    if artifact_type.lower() not in ("model", "dataset", "code"):
+    artifact_type = _normalize_artifact_type(artifact_type)
+    if artifact_type not in ("model", "dataset", "code"):
         return error_response(400, "Unsupported artifact type")
 
     body = _parse_json_body(event)
@@ -926,11 +960,20 @@ def handle_create_artifact(artifact_type: str, event: Dict[str, Any]) -> Dict[st
         return error_response(400, "Missing artifact url")
 
     name = None
+    dependencies = None
     if isinstance(body, dict):
         name = body.get("name") or body.get("metadata", {}).get("name")
+        readme = body.get("readme") or body.get("data", {}).get("readme")
+        dependencies = body.get("dependencies") or body.get("data", {}).get("dependencies")
+    else:
+        readme = None
     try:
         record = _get_registry_store().create_artifact(
-            artifact_type, source_url, name=name
+            artifact_type,
+            source_url,
+            name=name,
+            readme=readme,
+            dependencies=dependencies if isinstance(dependencies, list) else None,
         )
     except Exception as exc:
         logger.error(f"Create artifact failed: {exc}")
