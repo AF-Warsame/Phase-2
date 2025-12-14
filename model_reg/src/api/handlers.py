@@ -330,7 +330,7 @@ class RegistryStore:
         
         # Ensure name is present - required field per spec
         name = record.get("name")
-        if not name:
+        if name is None or name == "":
             name = f"artifact-{artifact_id}"
         
         # Build complete ModelRating response per OpenAPI spec
@@ -481,15 +481,14 @@ def _get_download_url(event: Dict[str, Any], artifact_id: str, artifact_name: st
         # Try to construct from API Gateway event
         # Normalize headers to lowercase for consistent access
         headers = event.get("headers", {})
-        if headers:
-            headers = {k.lower(): v for k, v in headers.items()}
+        normalized_headers = {k.lower(): v for k, v in headers.items()} if headers else {}
         
-        host = headers.get("host")
+        host = normalized_headers.get("host")
         
         if host:
             # Use the host from the request
             # Check for x-forwarded-proto
-            protocol = headers.get("x-forwarded-proto", "https")
+            protocol = normalized_headers.get("x-forwarded-proto", "https")
             if protocol not in ["http", "https"]:
                 protocol = "https"
             api_url = f"{protocol}://{host}"
@@ -884,23 +883,25 @@ def handle_download_artifact(
     artifact_name: str, artifact_id: str, event: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Handle artifact download requests"""
-    # Download endpoint may not require auth for public artifacts
-    # If auth is required, uncomment the following:
-    # auth_error = _require_auth(event)
-    # if auth_error:
-    #     return auth_error
+    # Verify the artifact exists and get its actual name
+    record = _get_registry_store().get_artifact(artifact_id)
+    if not record:
+        return error_response(404, "Artifact not found")
     
     # Get the artifact data
     blob = _get_registry_store().get_artifact_data(artifact_id)
     if not blob:
-        return error_response(404, "Artifact not found")
+        return error_response(404, "Artifact data not found")
+    
+    # Use the actual artifact name from the database for the filename
+    actual_name = record.get("name", artifact_name)
     
     # Return the binary data with appropriate headers
     return {
         "statusCode": 200,
         "headers": {
             "Content-Type": "application/zip",
-            "Content-Disposition": f'attachment; filename="{artifact_name}-{artifact_id}.zip"',
+            "Content-Disposition": f'attachment; filename="{actual_name}-{artifact_id}.zip"',
             "Access-Control-Allow-Origin": "*",
         },
         "body": base64.b64encode(blob).decode("utf-8"),
