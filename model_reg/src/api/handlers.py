@@ -285,31 +285,41 @@ class RegistryStore:
         record = self.get_artifact(artifact_id)
         if not record:
             return None
-        nodes = [
-            {
-                "artifact_id": int(record["artifact_id"]),
-                "name": record.get("name"),
-                "source": "config_json",
-            }
-        ]
+        
+        nodes = []
         edges = []
-        for dep_id in record.get("dependencies", []):
-            dep = self.get_artifact(dep_id)
-            if dep:
-                nodes.append(
-                    {
-                        "artifact_id": int(dep["artifact_id"]),
-                        "name": dep.get("name"),
-                        "source": "config_json",
-                    }
-                )
-                edges.append(
-                    {
-                        "from_node_artifact_id": int(dep["artifact_id"]),
-                        "to_node_artifact_id": int(record["artifact_id"]),
+        visited = set()
+        
+        def add_node_and_deps(artifact_rec, is_root=False):
+            """Recursively add nodes and their dependencies"""
+            art_id = artifact_rec.get("artifact_id")
+            if art_id in visited:
+                return
+            visited.add(art_id)
+            
+            # Add the node
+            nodes.append({
+                "artifact_id": int(art_id),
+                "name": artifact_rec.get("name"),
+                "source": "config_json",
+            })
+            
+            # Process dependencies
+            for dep_id in artifact_rec.get("dependencies", []):
+                dep = self.get_artifact(dep_id)
+                if dep:
+                    # Add edge from dependency to this artifact
+                    edges.append({
+                        "from_node_artifact_id": int(dep_id),
+                        "to_node_artifact_id": int(art_id),
                         "relationship": "dependency",
-                    }
-                )
+                    })
+                    # Recursively add the dependency
+                    add_node_and_deps(dep)
+        
+        # Start with the root artifact
+        add_node_and_deps(record, is_root=True)
+        
         return {"nodes": nodes, "edges": edges}
 
     def rate(self, artifact_id: str) -> Optional[Dict[str, Any]]:
