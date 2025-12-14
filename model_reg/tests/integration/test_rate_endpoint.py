@@ -10,6 +10,22 @@ from unittest.mock import Mock, patch
 model_reg_src = os.path.join(os.path.dirname(__file__), '../../src')
 sys.path.insert(0, model_reg_src)
 
+# Required fields per OpenAPI spec for ModelRating response
+REQUIRED_RATING_FIELDS = [
+    'name', 'category', 'net_score', 'net_score_latency',
+    'ramp_up_time', 'ramp_up_time_latency',
+    'bus_factor', 'bus_factor_latency',
+    'performance_claims', 'performance_claims_latency',
+    'license', 'license_latency',
+    'dataset_and_code_score', 'dataset_and_code_score_latency',
+    'dataset_quality', 'dataset_quality_latency',
+    'code_quality', 'code_quality_latency',
+    'reproducibility', 'reproducibility_latency',
+    'reviewedness', 'reviewedness_latency',
+    'tree_score', 'tree_score_latency',
+    'size_score', 'size_score_latency'
+]
+
 
 def test_rate_nonexistent_artifact_returns_404():
     """Test that rating a non-existent artifact returns 404"""
@@ -114,22 +130,7 @@ def test_rate_existing_artifact_has_required_fields():
         assert isinstance(result, dict), "Result should be a dict"
         
         # Check required fields per OpenAPI spec
-        required_fields = [
-            'name', 'category', 'net_score', 'net_score_latency',
-            'ramp_up_time', 'ramp_up_time_latency',
-            'bus_factor', 'bus_factor_latency',
-            'performance_claims', 'performance_claims_latency',
-            'license', 'license_latency',
-            'dataset_and_code_score', 'dataset_and_code_score_latency',
-            'dataset_quality', 'dataset_quality_latency',
-            'code_quality', 'code_quality_latency',
-            'reproducibility', 'reproducibility_latency',
-            'reviewedness', 'reviewedness_latency',
-            'tree_score', 'tree_score_latency',
-            'size_score', 'size_score_latency'
-        ]
-        
-        for field in required_fields:
+        for field in REQUIRED_RATING_FIELDS:
             assert field in result, f"Required field '{field}' is missing from rating response"
         
         # Verify name is correct
