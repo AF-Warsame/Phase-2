@@ -372,8 +372,12 @@ class RegistryStore:
         
         return {"nodes": nodes, "edges": edges}
 
-    def rate(self, artifact_id: str) -> Dict[str, Any]:
-        record = self.get_artifact(artifact_id) or {}
+    def rate(self, artifact_id: str) -> Optional[Dict[str, Any]]:
+        record = self.get_artifact(artifact_id)
+        
+        # CRITICAL: Return None if artifact doesn't exist
+        if not record:
+            return None
         
         # Ensure name is present - required field per spec
         name = record.get("name") or f"artifact-{artifact_id}"
@@ -813,11 +817,12 @@ def handle_artifact_by_name(name: str, event: Dict[str, Any]) -> Dict[str, Any]:
 
 def handle_artifact_rate(artifact_id: str, event: Dict[str, Any]) -> Dict[str, Any]:
     # Permit rating even if auth header is missing to improve robustness for concurrent tests
-    try:
-        rating = _get_registry_store().rate(artifact_id)
-    except Exception:
-        # Fallback default rating if anything goes wrong
-        rating = _get_registry_store().rate(str(artifact_id))
+    rating = _get_registry_store().rate(artifact_id)
+    
+    # Check if artifact exists
+    if not rating:
+        return error_response(404, "Artifact not found")
+    
     return success_response(rating)
 
 
